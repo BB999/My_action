@@ -93,6 +93,31 @@ jobs:
           echo "$PROMPT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Initialize MCP session
+        id: init_session
+        env:
+          KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
+        run: |
+          echo "🔐 Initializing MCP session..."
+
+          RESPONSE=$(curl -s -i -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+            -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json, text/event-stream" \
+            -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"github-actions","version":"1.0.0"}}}')
+
+          # セッションIDを抽出
+          SESSION_ID=$(echo "$RESPONSE" | grep -i "mcp-session-id:" | sed 's/mcp-session-id: //i' | tr -d '\r')
+
+          if [ -z "$SESSION_ID" ]; then
+            echo "❌ Failed to get session ID"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+          echo "✅ Session ID: $SESSION_ID"
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
+
       - name: Submit image edit request
         id: submit
         env:
@@ -102,7 +127,7 @@ jobs:
 
           # プロンプトをJSONセーフにエスケープ
           PROMPT='${{ steps.read_prompt.outputs.prompt }}'
-          PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.')
+          PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.' | sed 's/^"//;s/"$//')
 
           # デバッグ: 送信するデータを表示
           echo "📤 Sending request with:"
@@ -111,47 +136,28 @@ jobs:
           echo "  - output_format: ${{ inputs.output_format }}"
           echo "  - num_images: ${{ inputs.num_images }}"
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+          SESSION_ID="${{ steps.init_session.outputs.session_id }}"
+
+          RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"prompt\": $PROMPT_ESCAPED,
-              \"image_urls\": [\"${{ needs.upload-image.outputs.upload-url }}\"],
-              \"aspect_ratio\": \"${{ inputs.aspect_ratio }}\",
-              \"output_format\": \"${{ inputs.output_format }}\",
-              \"num_images\": ${{ inputs.num_images }}
-            }")
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":2,\"params\":{\"name\":\"nano_banana_pro_edit_submit\",\"arguments\":{\"prompt\":\"$PROMPT_ESCAPED\",\"image_urls\":[\"${{ needs.upload-image.outputs.upload-url }}\"],\"aspect_ratio\":\"${{ inputs.aspect_ratio }}\",\"output_format\":\"${{ inputs.output_format }}\",\"num_images\":${{ inputs.num_images }}}}}")
 
-          # HTTPステータスコードとレスポンスボディを分離
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "📥 Response: $RESPONSE"
 
-          echo "📥 HTTP Status: $HTTP_CODE"
-          echo "📥 Response Body: $BODY"
-
-          # エラーチェック
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ API returned HTTP $HTTP_CODE"
-            echo "Error response: $BODY"
-            exit 1
-          fi
-
-          # JSONかどうか確認
-          if ! echo "$BODY" | jq -e . >/dev/null 2>&1; then
-            echo "❌ Response is not valid JSON: $BODY"
-            exit 1
-          fi
-
-          REQUEST_ID=$(echo "$BODY" | jq -r '.request_id')
+          # JSONRPCレスポンスからrequest_idを抽出
+          REQUEST_ID=$(echo "$RESPONSE" | jq -r '.result.content[0].text' | jq -r '.request_id')
 
           if [ "$REQUEST_ID" = "null" ] || [ -z "$REQUEST_ID" ]; then
             echo "❌ No request_id in response"
-            echo "Full response: $BODY"
+            echo "Full response: $RESPONSE"
             exit 1
           fi
 
           echo "🔑 Request ID: $REQUEST_ID"
           echo "request_id=$REQUEST_ID" >> $GITHUB_OUTPUT
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
 
       - name: Wait and check status
         id: status
@@ -159,6 +165,7 @@ jobs:
           KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
         run: |
           REQUEST_ID="${{ steps.submit.outputs.request_id }}"
+          SESSION_ID="${{ steps.submit.outputs.session_id }}"
           echo "⏳ Checking status for request: $REQUEST_ID"
 
           for i in {1..40}; do
@@ -167,10 +174,11 @@ jobs:
             STATUS_RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
               -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
               -H "Content-Type: application/json" \
-              -d "{\"action\": \"status\", \"request_id\": \"$REQUEST_ID\"}")
+              -H "Mcp-Session-Id: $SESSION_ID" \
+              -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":3,\"params\":{\"name\":\"nano_banana_pro_edit_status\",\"arguments\":{\"request_id\":\"$REQUEST_ID\"}}}")
 
             echo "📊 Status response: $STATUS_RESPONSE"
-            STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.status')
+            STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.result.content[0].text' | jq -r '.status')
 
             if [ "$STATUS" = "COMPLETED" ]; then
               echo "✅ Generation completed!"
@@ -192,12 +200,19 @@ jobs:
           KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
         run: |
           REQUEST_ID="${{ steps.submit.outputs.request_id }}"
+          SESSION_ID="${{ steps.submit.outputs.session_id }}"
           echo "📥 Getting result for request: $REQUEST_ID"
 
-          RESULT=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+          RESULT_RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
-            -d "{\"action\": \"result\", \"request_id\": \"$REQUEST_ID\"}")
+            -H "Mcp-Session-Id: $SESSION_ID" \
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":4,\"params\":{\"name\":\"nano_banana_pro_edit_result\",\"arguments\":{\"request_id\":\"$REQUEST_ID\"}}}")
+
+          echo "📦 Result Response: $RESULT_RESPONSE"
+
+          # JSONRPCレスポンスから結果を抽出
+          RESULT=$(echo "$RESULT_RESPONSE" | jq -r '.result.content[0].text')
 
           echo "📦 Result: $RESULT"
 
