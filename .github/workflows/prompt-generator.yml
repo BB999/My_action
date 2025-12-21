@@ -28,9 +28,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique, cinematic scene description for an anime girl character in a real Japanese location. Describe her posture, the environment, lighting, and atmosphere in 2-3 sentences. Be specific about body language and surroundings. Output ONLY the English description, no explanations or labels.
+            Generate a unique, cinematic scene description for a cool cat wearing red and blue sunglasses in a real Japanese location. Describe the cat's posture, the environment, lighting, and atmosphere in 2-3 sentences. Be specific about body language and surroundings. Output ONLY the English description, no explanations or labels.
 
-            Example style: She leans sideways against the metal railing along the Sumida River, both arms resting loosely on top. Her upper body folds slightly forward; she shifts her weight onto one hip. Behind her, trains cross the distant bridge, sunlight glancing off windows.
+            Example style: A cat leans sideways against the metal railing along the Sumida River, both paws resting loosely on top. Her furry body folds slightly forward; she shifts her weight onto one hip. Behind her, trains cross the distant bridge, sunlight glancing off windows.
 
       - name: Extract and build prompt
         id: extract
