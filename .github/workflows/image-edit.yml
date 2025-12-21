@@ -17,6 +17,7 @@ jobs:
   # Step 1: プロンプトを生成
   generate-prompt:
     uses: ./.github/workflows/prompt-generator.yml
+    secrets: inherit
 
   # Step 2: FALに画像をアップロード
   upload-image:
