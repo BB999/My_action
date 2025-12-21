@@ -70,14 +70,22 @@ jobs:
             "$DISCORD_WEBHOOK_URL"
         else
           # 画像ファイルをDiscordに送信
-          echo "$IMAGES" | while read -r img; do
+          for img in $IMAGES; do
             if [ -f "$img" ]; then
               echo "📷 Sending: $img"
-              curl -s -X POST \
+              echo "📏 File size: $(ls -lh "$img" | awk '{print $5}')"
+
+              HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/response.txt -X POST \
                 -F "content=$MESSAGE" \
                 -F "file=@$img" \
-                "$DISCORD_WEBHOOK_URL"
-              echo "✅ Sent: $img"
+                "$DISCORD_WEBHOOK_URL" || echo "000")
+
+              echo "📥 HTTP Status: $HTTP_CODE"
+              if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ]; then
+                echo "❌ Response: $(cat /tmp/response.txt 2>/dev/null || echo 'No response')"
+              else
+                echo "✅ Sent: $img"
+              fi
               # レート制限対策
               sleep 1
             fi
