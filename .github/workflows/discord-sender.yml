@@ -60,6 +60,14 @@ jobs:
         echo "🔗 URL prefix: ${DISCORD_WEBHOOK_URL:0:40}..."
         echo "📏 URL length: ${#DISCORD_WEBHOOK_URL}"
 
+        # 不正な文字をチェック
+        echo "🔍 URL hex dump (first 50 chars):"
+        echo "${DISCORD_WEBHOOK_URL:0:50}" | xxd | head -3
+
+        # 改行や空白を除去
+        DISCORD_WEBHOOK_URL=$(echo "$DISCORD_WEBHOOK_URL" | tr -d '\n\r\t ' | sed 's/[[:space:]]//g')
+        echo "📏 Cleaned URL length: ${#DISCORD_WEBHOOK_URL}"
+
         # 画像ファイルを探す
         IMAGES=$(find ./images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -10)
 
