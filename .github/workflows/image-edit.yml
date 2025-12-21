@@ -111,12 +111,12 @@ jobs:
           echo "  - output_format: ${{ inputs.output_format }}"
           echo "  - num_images: ${{ inputs.num_images }}"
 
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://kamui-code.ai/banana-edit" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
             -d "{
               \"prompt\": $PROMPT_ESCAPED,
-              \"image_url\": \"${{ needs.upload-image.outputs.upload-url }}\",
+              \"image_urls\": [\"${{ needs.upload-image.outputs.upload-url }}\"],
               \"aspect_ratio\": \"${{ inputs.aspect_ratio }}\",
               \"output_format\": \"${{ inputs.output_format }}\",
               \"num_images\": ${{ inputs.num_images }}
@@ -164,7 +164,7 @@ jobs:
           for i in {1..40}; do
             echo "Attempt $i/40: Checking status..."
 
-            STATUS_RESPONSE=$(curl -s -X POST "https://kamui-code.ai/banana-edit" \
+            STATUS_RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
               -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
               -H "Content-Type: application/json" \
               -d "{\"action\": \"status\", \"request_id\": \"$REQUEST_ID\"}")
@@ -194,7 +194,7 @@ jobs:
           REQUEST_ID="${{ steps.submit.outputs.request_id }}"
           echo "📥 Getting result for request: $REQUEST_ID"
 
-          RESULT=$(curl -s -X POST "https://kamui-code.ai/banana-edit" \
+          RESULT=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
             -d "{\"action\": \"result\", \"request_id\": \"$REQUEST_ID\"}")
