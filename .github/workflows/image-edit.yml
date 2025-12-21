@@ -222,15 +222,15 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Download images
+        env:
+          RESULT_JSON: ${{ steps.result.outputs.result }}
         run: |
           mkdir -p output
 
-          # 結果からURLを抽出
-          RESULT='${{ steps.result.outputs.result }}'
           echo "📦 Processing result..."
 
           # 複数のパターンでURLを抽出
-          URLS=$(echo "$RESULT" | jq -r '
+          URLS=$(echo "$RESULT_JSON" | jq -r '
             .images[]?.url // empty,
             .image_url // empty,
             .output?.url // empty,
@@ -239,7 +239,7 @@ jobs:
 
           if [ -z "$URLS" ]; then
             echo "⚠️ No image URLs found in result"
-            echo "$RESULT" | jq '.' 2>/dev/null || echo "$RESULT"
+            echo "$RESULT_JSON" | jq '.' 2>/dev/null || echo "$RESULT_JSON"
             exit 1
           fi
 
