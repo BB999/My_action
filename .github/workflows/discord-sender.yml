@@ -51,6 +51,13 @@ jobs:
       run: |
         echo "📤 Sending to Discord..."
 
+        # WebhookURLの確認
+        if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+          echo "❌ DISCORD_WEBHOOK_URL is not set"
+          exit 1
+        fi
+        echo "✅ Webhook URL is set"
+
         # 画像ファイルを探す
         IMAGES=$(find ./images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -10)
 
