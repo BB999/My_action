@@ -57,6 +57,8 @@ jobs:
           exit 1
         fi
         echo "✅ Webhook URL is set"
+        echo "🔗 URL prefix: ${DISCORD_WEBHOOK_URL:0:40}..."
+        echo "📏 URL length: ${#DISCORD_WEBHOOK_URL}"
 
         # 画像ファイルを探す
         IMAGES=$(find ./images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -10)
