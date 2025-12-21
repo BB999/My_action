@@ -75,10 +75,10 @@ jobs:
         echo "url=$URL" >> $GITHUB_OUTPUT
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Output results
+    - name: Summary
       run: |
-        echo "=========================================="
-        echo "FAL Upload Complete"
-        echo "URL: ${{ steps.upload.outputs.url }}"
-        echo "Status: ${{ steps.upload.outputs.status }}"
-        echo "=========================================="
+        echo "## 📤 FAL Upload Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**File:** ${{ inputs.image_path }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status:** ${{ steps.upload.outputs.status }}" >> $GITHUB_STEP_SUMMARY
