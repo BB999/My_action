@@ -21,6 +21,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read prompt.md
+        id: read_prompt
+        run: |
+          # キャラクター説明を抽出（⓪の次の行から①の前まで）
+          CHARACTER=$(sed -n '/^⓪/,/^①/{/^⓪/d;/^①/d;/^┗/d;p}' prompt/prompt/prompt.md | tr -d '\n' | xargs)
+          echo "character=$CHARACTER" >> $GITHUB_OUTPUT
+          echo "📋 Character: $CHARACTER"
+
+          # シチュエーション例を抽出（①の次の行から②の前まで）
+          EXAMPLE=$(sed -n '/^①/,/^②/{/^①/d;/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr -d '\n' | xargs)
+          echo "example=$EXAMPLE" >> $GITHUB_OUTPUT
+          echo "📋 Example: $EXAMPLE"
+
+          # 接尾辞を抽出（②の次の行から最後まで）
+          SUFFIX=$(sed -n '/^②/,${/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr -d '\n' | xargs)
+          echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
+          echo "📋 Suffix: $SUFFIX"
+
       - name: Generate situation with Claude
         id: claude
         uses: anthropics/claude-code-action@beta
@@ -28,20 +46,21 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique, cinematic scene description for a cool cat wearing red and blue sunglasses in a real Japanese location. Describe the cat's posture, the environment, lighting, and atmosphere in 2-3 sentences. Be specific about body language and surroundings. Output ONLY the English description, no explanations or labels.
+            Generate a unique, cinematic scene description for ${{ steps.read_prompt.outputs.character }} in a real Japanese location. Describe the character's posture, the environment, lighting, and atmosphere in 2-3 sentences. Be specific about body language and surroundings. Output ONLY the English description, no explanations or labels.
 
-            Example style: A cat leans sideways against the metal railing along the Sumida River, both paws resting loosely on top. Her furry body folds slightly forward; she shifts her weight onto one hip. Behind her, trains cross the distant bridge, sunlight glancing off windows.
+            Example style: ${{ steps.read_prompt.outputs.example }}
 
       - name: Extract and build prompt
         id: extract
         env:
           CLAUDE_OUTPUT: ${{ steps.claude.outputs.response }}
+          SUFFIX: ${{ steps.read_prompt.outputs.suffix }}
         run: |
           echo "🤖 Claude generated:"
           echo "$CLAUDE_OUTPUT"
 
-          # ②のプロンプトを追加
-          SUFFIX="Placed within a live-action background that matches the illustration's posture and composition — while faithfully preserving the illustrated texture and style. Realistic lighting, depth of field, and subtle filming effects are applied to blend the illustration seamlessly with the real environment."
+          echo "📋 Suffix from prompt.md:"
+          echo "$SUFFIX"
 
           # 最終プロンプトを生成
           FINAL_PROMPT="${CLAUDE_OUTPUT} ${SUFFIX}"
