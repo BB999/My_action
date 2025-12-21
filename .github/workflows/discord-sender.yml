@@ -77,10 +77,16 @@ jobs:
               echo "📷 Sending: $img"
               echo "📏 File size: $(ls -lh "$img" | awk '{print $5}')"
 
-              HTTP_CODE=$(curl -s -w "%{http_code}" -o /tmp/response.txt -X POST \
+              # discordapp.com を discord.com に変換
+              WEBHOOK_URL="${DISCORD_WEBHOOK_URL/discordapp.com/discord.com}"
+
+              HTTP_CODE=$(curl -sS -w "%{http_code}" -o /tmp/response.txt -X POST \
                 -F "content=$MESSAGE" \
                 -F "file=@$img" \
-                "$DISCORD_WEBHOOK_URL" || echo "000")
+                "$WEBHOOK_URL" 2>&1) || true
+
+              echo "📥 Curl output: $HTTP_CODE"
+              HTTP_CODE=$(echo "$HTTP_CODE" | tail -c 4 | head -c 3)
 
               echo "📥 HTTP Status: $HTTP_CODE"
               if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ]; then
