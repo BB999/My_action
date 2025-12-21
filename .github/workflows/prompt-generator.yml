@@ -60,7 +60,28 @@ jobs:
 
           # Claude出力ファイルからassistantの最後のメッセージを抽出
           if [ -f "$EXECUTION_FILE" ]; then
-            CLAUDE_OUTPUT=$(jq -r '.turns | map(select(.role == "assistant")) | last | .content | map(select(.type == "text")) | .[0].text // empty' "$EXECUTION_FILE")
+            echo "📋 JSON structure (keys):"
+            jq 'keys' "$EXECUTION_FILE"
+            echo ""
+            echo "📋 Full JSON:"
+            jq '.' "$EXECUTION_FILE" | head -100
+
+            # 様々なパターンを試す
+            CLAUDE_OUTPUT=$(jq -r '
+              if type == "array" then
+                map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end
+              elif .turns then
+                .turns | map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end
+              elif .messages then
+                .messages | map(select(.role == "assistant")) | last | .content
+              elif .response then
+                .response
+              elif .result then
+                .result
+              else
+                empty
+              end // empty
+            ' "$EXECUTION_FILE" 2>/dev/null || echo "")
           else
             echo "❌ Execution file not found"
             CLAUDE_OUTPUT=""
