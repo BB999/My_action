@@ -3,15 +3,20 @@ name: Image Edit with Nano Banana Pro
 on:
   workflow_dispatch:
     inputs:
+      prompt_file:
+        description: 'プロンプトファイルのパス'
+        required: false
+        type: string
+        default: 'prompt/prompt/prompt.md'
       prompt:
-        description: '編集のプロンプト'
-        required: true
+        description: '編集のプロンプト（ファイルより優先）'
+        required: false
         type: string
       image_path:
         description: '編集する画像のパス (リポジトリ内)'
         required: true
         type: string
-        default: 'images/test.png'
+        default: 'images/noranekob_samen.png'
       aspect_ratio:
         description: 'アスペクト比'
         required: false
@@ -65,6 +70,29 @@ jobs:
           echo "📷 Uploaded image URL: ${{ needs.upload-image.outputs.upload-url }}"
           echo "📊 Upload status: ${{ needs.upload-image.outputs.upload-status }}"
 
+      - name: Read prompt from file
+        id: read_prompt
+        run: |
+          # 直接入力のプロンプトがあればそれを使用、なければファイルから読む
+          if [ -n "${{ inputs.prompt }}" ]; then
+            echo "📝 Using direct prompt input"
+            PROMPT="${{ inputs.prompt }}"
+          elif [ -f "${{ inputs.prompt_file }}" ]; then
+            echo "📄 Reading prompt from: ${{ inputs.prompt_file }}"
+            PROMPT=$(cat "${{ inputs.prompt_file }}")
+          else
+            echo "❌ No prompt provided and file not found: ${{ inputs.prompt_file }}"
+            exit 1
+          fi
+
+          echo "📝 Prompt content:"
+          echo "$PROMPT"
+
+          # 改行をエスケープしてGitHub Outputに保存
+          echo "prompt<<EOF" >> $GITHUB_OUTPUT
+          echo "$PROMPT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Submit image edit request
         id: submit
         env:
@@ -72,16 +100,20 @@ jobs:
         run: |
           echo "🚀 Submitting image edit request..."
 
+          # プロンプトをJSONセーフにエスケープ
+          PROMPT='${{ steps.read_prompt.outputs.prompt }}'
+          PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.')
+
           RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
-            -d '{
-              "prompt": "${{ inputs.prompt }}",
-              "image_url": "${{ needs.upload-image.outputs.upload-url }}",
-              "aspect_ratio": "${{ inputs.aspect_ratio }}",
-              "output_format": "${{ inputs.output_format }}",
-              "num_images": ${{ inputs.num_images }}
-            }')
+            -d "{
+              \"prompt\": $PROMPT_ESCAPED,
+              \"image_url\": \"${{ needs.upload-image.outputs.upload-url }}\",
+              \"aspect_ratio\": \"${{ inputs.aspect_ratio }}\",
+              \"output_format\": \"${{ inputs.output_format }}\",
+              \"num_images\": ${{ inputs.num_images }}
+            }")
 
           echo "📥 Response: $RESPONSE"
           REQUEST_ID=$(echo "$RESPONSE" | jq -r '.request_id')
