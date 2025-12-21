@@ -68,11 +68,7 @@ jobs:
 
         echo "File exists: ${{ inputs.image_path }}"
 
-        URL=$(python3 -c "
-import fal_client
-url = fal_client.upload_file('${{ inputs.image_path }}')
-print(url)
-")
+        URL=$(python3 -c "import fal_client; print(fal_client.upload_file('${{ inputs.image_path }}'))")
 
         echo "Upload successful!"
         echo "URL: $URL"
