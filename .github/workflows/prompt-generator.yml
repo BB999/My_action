@@ -45,8 +45,8 @@ jobs:
 
           if [ "$SITUATION" = "null" ] || [ -z "$SITUATION" ]; then
             echo "❌ Failed to generate situation"
-            echo "Using fallback..."
-            SITUATION="She stands at a quiet train platform in the early morning, hands clasped in front of her. Mist rises from the tracks as the first light of dawn breaks through the station roof. Her reflection shimmers faintly in the polished floor tiles."
+            echo "📥 Full response: $RESPONSE"
+            exit 1
           fi
 
           echo "📝 Generated situation:"
