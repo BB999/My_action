@@ -16,6 +16,7 @@ jobs:
 
   # Step 2: FALに画像をアップロード
   upload-image:
+    needs: generate-prompt
     uses: ./.github/workflows/fal-image-upload.yml
     with:
       image_path: images/noranekob_samen.png
