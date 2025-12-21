@@ -53,9 +53,19 @@ jobs:
       - name: Extract and build prompt
         id: extract
         env:
-          CLAUDE_OUTPUT: ${{ steps.claude.outputs.response }}
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
           SUFFIX: ${{ steps.read_prompt.outputs.suffix }}
         run: |
+          echo "📄 Execution file: $EXECUTION_FILE"
+
+          # Claude出力ファイルからassistantの最後のメッセージを抽出
+          if [ -f "$EXECUTION_FILE" ]; then
+            CLAUDE_OUTPUT=$(jq -r '.turns | map(select(.role == "assistant")) | last | .content | map(select(.type == "text")) | .[0].text // empty' "$EXECUTION_FILE")
+          else
+            echo "❌ Execution file not found"
+            CLAUDE_OUTPUT=""
+          fi
+
           echo "🤖 Claude generated:"
           echo "$CLAUDE_OUTPUT"
 
