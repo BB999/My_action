@@ -49,25 +49,6 @@ jobs:
         DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         MESSAGE: ${{ inputs.message }}
       run: |
-        echo "📤 Sending to Discord..."
-
-        # WebhookURLの確認
-        if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-          echo "❌ DISCORD_WEBHOOK_URL is not set"
-          exit 1
-        fi
-        echo "✅ Webhook URL is set"
-        echo "🔗 URL prefix: ${DISCORD_WEBHOOK_URL:0:40}..."
-        echo "📏 URL length: ${#DISCORD_WEBHOOK_URL}"
-
-        # 不正な文字をチェック
-        echo "🔍 URL hex dump (first 50 chars):"
-        echo "${DISCORD_WEBHOOK_URL:0:50}" | xxd | head -3
-
-        # 改行や空白を除去
-        DISCORD_WEBHOOK_URL=$(echo "$DISCORD_WEBHOOK_URL" | tr -d '\n\r\t ' | sed 's/[[:space:]]//g')
-        echo "📏 Cleaned URL length: ${#DISCORD_WEBHOOK_URL}"
-
         # 画像ファイルを探す
         IMAGES=$(find ./images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -10)
 
@@ -79,30 +60,14 @@ jobs:
             -d "$JSON_PAYLOAD" \
             "$DISCORD_WEBHOOK_URL"
         else
-          # 画像ファイルをDiscordに送信
           for img in $IMAGES; do
             if [ -f "$img" ]; then
               echo "📷 Sending: $img"
-              echo "📏 File size: $(ls -lh "$img" | awk '{print $5}')"
-
-              # discordapp.com を discord.com に変換
-              WEBHOOK_URL="${DISCORD_WEBHOOK_URL/discordapp.com/discord.com}"
-
-              HTTP_CODE=$(curl -sS -w "%{http_code}" -o /tmp/response.txt -X POST \
+              curl -s -X POST \
                 -F "content=$MESSAGE" \
                 -F "file=@$img" \
-                "$WEBHOOK_URL" 2>&1) || true
-
-              echo "📥 Curl output: $HTTP_CODE"
-              HTTP_CODE=$(echo "$HTTP_CODE" | tail -c 4 | head -c 3)
-
-              echo "📥 HTTP Status: $HTTP_CODE"
-              if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "204" ]; then
-                echo "❌ Response: $(cat /tmp/response.txt 2>/dev/null || echo 'No response')"
-              else
-                echo "✅ Sent: $img"
-              fi
-              # レート制限対策
+                "$DISCORD_WEBHOOK_URL"
+              echo "✅ Sent: $img"
               sleep 1
             fi
           done
