@@ -228,3 +228,12 @@ jobs:
           echo "- Number of Images: ${{ inputs.num_images }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 Check the **Artifacts** section below to download the edited images." >> $GITHUB_STEP_SUMMARY
+
+  # Step 3: Discordに送信
+  send-to-discord:
+    needs: edit-image
+    uses: ./.github/workflows/discord-sender.yml
+    with:
+      message: "🎨 画像編集が完了しました！"
+      artifact-name: edited-images
+    secrets: inherit

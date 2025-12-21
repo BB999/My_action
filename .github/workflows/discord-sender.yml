@@ -1,0 +1,89 @@
+name: Discord Sender Module
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        description: 'Discordに送信するメッセージ'
+        required: true
+        type: string
+      artifact-name:
+        description: 'ダウンロードするアーティファクト名'
+        required: false
+        type: string
+        default: 'edited-images'
+      embed-title:
+        description: '埋め込みメッセージのタイトル（任意）'
+        required: false
+        type: string
+      embed-description:
+        description: '埋め込みメッセージの説明（任意）'
+        required: false
+        type: string
+      embed-color:
+        description: '埋め込みメッセージの色（16進数、任意）'
+        required: false
+        type: string
+        default: '0099ff'
+
+jobs:
+  send-to-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download Image Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ./images
+      continue-on-error: true
+
+    - name: Check Downloaded Files
+      run: |
+        echo "📁 Checking for images..."
+        ls -la ./images/ 2>/dev/null || echo "No images directory"
+        find . -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) | head -10
+
+    - name: Send images to Discord
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        MESSAGE: ${{ inputs.message }}
+      run: |
+        echo "📤 Sending to Discord..."
+
+        # 画像ファイルを探す
+        IMAGES=$(find ./images -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" \) 2>/dev/null | head -10)
+
+        if [ -z "$IMAGES" ]; then
+          echo "⚠️ No images found, sending message only"
+          JSON_PAYLOAD=$(jq -n --arg content "$MESSAGE" '{content: $content}')
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "$DISCORD_WEBHOOK_URL"
+        else
+          # 画像ファイルをDiscordに送信
+          echo "$IMAGES" | while read -r img; do
+            if [ -f "$img" ]; then
+              echo "📷 Sending: $img"
+              curl -s -X POST \
+                -F "content=$MESSAGE" \
+                -F "file=@$img" \
+                "$DISCORD_WEBHOOK_URL"
+              echo "✅ Sent: $img"
+              # レート制限対策
+              sleep 1
+            fi
+          done
+        fi
+
+        echo "✅ Discord送信完了"
+
+    - name: Send embed to Discord
+      if: ${{ inputs.embed-title != '' && inputs.embed-description != '' }}
+      env:
+        DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      run: |
+        curl -s -H "Content-Type: application/json" \
+             -d "{\"embeds\": [{\"title\": \"${{ inputs.embed-title }}\", \"description\": \"${{ inputs.embed-description }}\", \"color\": ${{ inputs.embed-color }}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}]}" \
+             "$DISCORD_WEBHOOK_URL"
