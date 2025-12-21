@@ -104,7 +104,14 @@ jobs:
           PROMPT='${{ steps.read_prompt.outputs.prompt }}'
           PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.')
 
-          RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+          # デバッグ: 送信するデータを表示
+          echo "📤 Sending request with:"
+          echo "  - image_url: ${{ needs.upload-image.outputs.upload-url }}"
+          echo "  - aspect_ratio: ${{ inputs.aspect_ratio }}"
+          echo "  - output_format: ${{ inputs.output_format }}"
+          echo "  - num_images: ${{ inputs.num_images }}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
             -d "{
@@ -115,8 +122,34 @@ jobs:
               \"num_images\": ${{ inputs.num_images }}
             }")
 
-          echo "📥 Response: $RESPONSE"
-          REQUEST_ID=$(echo "$RESPONSE" | jq -r '.request_id')
+          # HTTPステータスコードとレスポンスボディを分離
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "📥 HTTP Status: $HTTP_CODE"
+          echo "📥 Response Body: $BODY"
+
+          # エラーチェック
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ API returned HTTP $HTTP_CODE"
+            echo "Error response: $BODY"
+            exit 1
+          fi
+
+          # JSONかどうか確認
+          if ! echo "$BODY" | jq -e . >/dev/null 2>&1; then
+            echo "❌ Response is not valid JSON: $BODY"
+            exit 1
+          fi
+
+          REQUEST_ID=$(echo "$BODY" | jq -r '.request_id')
+
+          if [ "$REQUEST_ID" = "null" ] || [ -z "$REQUEST_ID" ]; then
+            echo "❌ No request_id in response"
+            echo "Full response: $BODY"
+            exit 1
+          fi
+
           echo "🔑 Request ID: $REQUEST_ID"
           echo "request_id=$REQUEST_ID" >> $GITHUB_OUTPUT
 
