@@ -1,0 +1,198 @@
+name: Image Edit with Nano Banana Pro
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: '編集のプロンプト'
+        required: true
+        type: string
+      image_path:
+        description: '編集する画像のパス (リポジトリ内)'
+        required: true
+        type: string
+        default: 'images/test.png'
+      aspect_ratio:
+        description: 'アスペクト比'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - 21:9
+          - 16:9
+          - 3:2
+          - 4:3
+          - 5:4
+          - 1:1
+          - 4:5
+          - 3:4
+          - 2:3
+          - 9:16
+      output_format:
+        description: '出力フォーマット'
+        required: false
+        default: 'png'
+        type: choice
+        options:
+          - jpeg
+          - png
+          - webp
+      num_images:
+        description: '生成する画像の数'
+        required: false
+        default: '1'
+        type: string
+
+jobs:
+  # Step 1: FALに画像をアップロード
+  upload-image:
+    uses: ./.github/workflows/fal-image-upload.yml
+    with:
+      image_path: ${{ inputs.image_path }}
+    secrets: inherit
+
+  # Step 2: 画像を編集
+  edit-image:
+    runs-on: ubuntu-latest
+    needs: upload-image
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Debug - Show uploaded image URL
+        run: |
+          echo "📷 Uploaded image URL: ${{ needs.upload-image.outputs.upload-url }}"
+          echo "📊 Upload status: ${{ needs.upload-image.outputs.upload-status }}"
+
+      - name: Submit image edit request
+        id: submit
+        env:
+          KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
+        run: |
+          echo "🚀 Submitting image edit request..."
+
+          RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+            -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "prompt": "${{ inputs.prompt }}",
+              "image_url": "${{ needs.upload-image.outputs.upload-url }}",
+              "aspect_ratio": "${{ inputs.aspect_ratio }}",
+              "output_format": "${{ inputs.output_format }}",
+              "num_images": ${{ inputs.num_images }}
+            }')
+
+          echo "📥 Response: $RESPONSE"
+          REQUEST_ID=$(echo "$RESPONSE" | jq -r '.request_id')
+          echo "🔑 Request ID: $REQUEST_ID"
+          echo "request_id=$REQUEST_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait and check status
+        id: status
+        env:
+          KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
+        run: |
+          REQUEST_ID="${{ steps.submit.outputs.request_id }}"
+          echo "⏳ Checking status for request: $REQUEST_ID"
+
+          for i in {1..40}; do
+            echo "Attempt $i/40: Checking status..."
+
+            STATUS_RESPONSE=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+              -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
+              -H "Content-Type: application/json" \
+              -d "{\"action\": \"status\", \"request_id\": \"$REQUEST_ID\"}")
+
+            echo "📊 Status response: $STATUS_RESPONSE"
+            STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.status')
+
+            if [ "$STATUS" = "COMPLETED" ]; then
+              echo "✅ Generation completed!"
+              echo "status=completed" >> $GITHUB_OUTPUT
+              break
+            elif [ "$STATUS" = "FAILED" ]; then
+              echo "❌ Generation failed!"
+              echo "status=failed" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+
+            echo "⏳ Status: $STATUS - waiting 15 seconds..."
+            sleep 15
+          done
+
+      - name: Get result
+        id: result
+        env:
+          KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
+        run: |
+          REQUEST_ID="${{ steps.submit.outputs.request_id }}"
+          echo "📥 Getting result for request: $REQUEST_ID"
+
+          RESULT=$(curl -s -X POST "https://kamui-code.ai/i2i/fal/nano-banana-pro/edit" \
+            -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
+            -H "Content-Type: application/json" \
+            -d "{\"action\": \"result\", \"request_id\": \"$REQUEST_ID\"}")
+
+          echo "📦 Result: $RESULT"
+
+          # GitHub Outputに保存（改行をエスケープ）
+          echo "result<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESULT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Download images
+        run: |
+          mkdir -p output
+
+          # 結果からURLを抽出
+          RESULT='${{ steps.result.outputs.result }}'
+          echo "📦 Processing result..."
+
+          # 複数のパターンでURLを抽出
+          URLS=$(echo "$RESULT" | jq -r '
+            .images[]?.url // empty,
+            .image_url // empty,
+            .output?.url // empty,
+            .result?.images[]?.url // empty
+          ' 2>/dev/null | grep -v '^$' | head -10)
+
+          if [ -z "$URLS" ]; then
+            echo "⚠️ No image URLs found in result"
+            echo "$RESULT" | jq '.' 2>/dev/null || echo "$RESULT"
+            exit 1
+          fi
+
+          COUNT=1
+          echo "$URLS" | while read -r url; do
+            if [ -n "$url" ]; then
+              FILENAME="edited_image_${COUNT}.${{ inputs.output_format }}"
+              echo "📥 Downloading: $url -> $FILENAME"
+              curl -s -L -o "output/$FILENAME" "$url"
+              COUNT=$((COUNT + 1))
+            fi
+          done
+
+          echo ""
+          echo "📁 Downloaded files:"
+          ls -la output/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: edited-images
+          path: output/
+          retention-days: 7
+
+      - name: Summary
+        run: |
+          echo "## 🎨 Image Edit Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Prompt:** ${{ inputs.prompt }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Settings:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Aspect Ratio: ${{ inputs.aspect_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Output Format: ${{ inputs.output_format }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Number of Images: ${{ inputs.num_images }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Check the **Artifacts** section below to download the edited images." >> $GITHUB_STEP_SUMMARY

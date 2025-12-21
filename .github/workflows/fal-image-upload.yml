@@ -1,0 +1,112 @@
+name: FAL Image Upload
+
+on:
+  workflow_call:
+    inputs:
+      image_path:
+        description: 'Path to the image file to upload'
+        required: true
+        type: string
+    outputs:
+      upload-url:
+        description: 'FAL upload URL'
+        value: ${{ jobs.upload-to-fal.outputs.url }}
+      upload-status:
+        description: 'Upload status'
+        value: ${{ jobs.upload-to-fal.outputs.status }}
+  workflow_dispatch:
+    inputs:
+      image_path:
+        description: 'Path to the image file to upload'
+        required: true
+        type: string
+        default: 'images/test.png'
+
+jobs:
+  upload-to-fal:
+    runs-on: ubuntu-latest
+
+    outputs:
+      url: ${{ steps.upload.outputs.url }}
+      status: ${{ steps.upload.outputs.status }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download Image Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: input-image
+        path: ./
+      continue-on-error: true
+
+    - name: List files
+      run: |
+        echo "📁 Current directory contents:"
+        ls -la ./
+        echo ""
+        echo "📁 Image files found:"
+        find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" -type f | head -10
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install fal_client
+      run: pip install fal_client
+
+    - name: Upload image to FAL
+      id: upload
+      env:
+        FAL_KEY: ${{ secrets.FAL_KEY }}
+      run: |
+        echo "🔍 Target file: '${{ inputs.image_path }}'"
+
+        # ファイル存在確認
+        if [ ! -f "${{ inputs.image_path }}" ]; then
+          echo "❌ File not found: ${{ inputs.image_path }}"
+          echo "🔍 Available files:"
+          find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" -type f
+          echo "url=unknown" >> $GITHUB_OUTPUT
+          echo "status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        echo "✅ File exists: ${{ inputs.image_path }}"
+
+        # Pythonでfal_clientを使ってアップロード
+        python << 'EOF'
+import fal_client
+import os
+import json
+
+image_path = "${{ inputs.image_path }}"
+print(f"🚀 Uploading {image_path} to FAL...")
+
+try:
+    url = fal_client.upload_file(image_path)
+    print(f"✅ Upload successful!")
+    print(f"🔗 URL: {url}")
+
+    # GitHub Outputに書き込み
+    with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+        f.write(f"url={url}\n")
+        f.write("status=success\n")
+
+except Exception as e:
+    print(f"❌ Upload failed: {e}")
+    with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+        f.write("url=unknown\n")
+        f.write("status=failed\n")
+    exit(1)
+EOF
+
+    - name: Output results
+      run: |
+        echo "=========================================="
+        echo "📤 FAL Upload Complete"
+        echo "🔗 URL: ${{ steps.upload.outputs.url }}"
+        echo "📊 Status: ${{ steps.upload.outputs.status }}"
+        echo "=========================================="

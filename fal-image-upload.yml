@@ -1,0 +1,116 @@
+name: FAL Image Upload
+
+on:
+  workflow_call:
+    inputs:
+      image_path:
+        description: 'Path to the image file to upload'
+        required: true
+        type: string
+    outputs:
+      upload-url:
+        description: 'FAL upload URL'
+        value: ${{ jobs.upload-to-fal.outputs.url }}
+      upload-status:
+        description: 'Upload status'
+        value: ${{ jobs.upload-to-fal.outputs.status }}
+  workflow_dispatch:
+    inputs:
+      image_path:
+        description: 'Path to the image file to upload'
+        required: true
+        type: string
+        default: 'images/test.png'
+
+jobs:
+  upload-to-fal:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      url: ${{ steps.upload.outputs.url }}
+      status: ${{ steps.upload.outputs.status }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Debug Input Parameters
+      run: |
+        echo "🔍 FAL Upload Debug Info:"
+        echo "Received image_path: '${{ inputs.image_path }}'"
+        echo "Input is not empty: ${{ inputs.image_path != '' }}"
+        
+    - name: Download Image Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: morning-image
+        path: ./
+      continue-on-error: true
+      
+    - name: List Downloaded Files
+      run: |
+        echo "📁 Current directory contents:"
+        ls -la ./
+        echo ""
+        echo "📁 Image files found:"
+        find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" -type f | head -10
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install fal_client requests python-dotenv pillow
+        
+    - name: Upload image to FAL
+      id: upload
+      env:
+        FAL_KEY: ${{ secrets.FAL_KEY }}
+      run: |
+        echo "🔍 Pre-upload Debug:"
+        echo "Target file: '${{ inputs.image_path }}'"
+        
+        # ファイル存在確認
+        if [ -f "${{ inputs.image_path }}" ]; then
+          echo "✅ File exists: ${{ inputs.image_path }}"
+          FILE_SIZE=$(stat -c%s "${{ inputs.image_path }}")
+          FILE_TYPE=$(file "${{ inputs.image_path }}")
+          echo "📊 File size: ${FILE_SIZE} bytes"
+          echo "📄 File type: $FILE_TYPE"
+        else
+          echo "❌ File not found: ${{ inputs.image_path }}"
+          echo "🔍 Available files:"
+          find . -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.webp" -type f
+        fi
+        
+        echo "🚀 Starting FAL upload..."
+        python FAL/upload_to_fal_standalone.py "${{ inputs.image_path }}"
+        
+        # 結果をoutputsに設定
+        if [ -f fal_upload_results.json ]; then
+          echo "✅ Upload results found:"
+          cat fal_upload_results.json
+          
+          # JSONから結果を抽出
+          URL=$(jq -r '.url // "unknown"' fal_upload_results.json 2>/dev/null || echo "unknown")
+          STATUS=$(jq -r '.status // "completed"' fal_upload_results.json 2>/dev/null || echo "completed")
+          
+          echo "🔍 Extracted URL: $URL"
+          echo "🔍 Extracted STATUS: $STATUS"
+          
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Upload results file not found"
+          echo "url=unknown" >> $GITHUB_OUTPUT
+          echo "status=failed" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Output results
+      run: |
+        echo "Image upload completed"
+        echo "URL: ${{ steps.upload.outputs.url }}"
+        echo "Status: ${{ steps.upload.outputs.status }}"

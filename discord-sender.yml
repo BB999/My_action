@@ -1,0 +1,90 @@
+name: Discord Sender Module
+
+on:
+  workflow_call:
+    inputs:
+      message:
+        description: 'Discordに送信するメッセージ'
+        required: true
+        type: string
+      file-path:
+        description: '送信するファイルのパス（任意）'
+        required: false
+        type: string
+      embed-title:
+        description: '埋め込みメッセージのタイトル（任意）'
+        required: false
+        type: string
+      embed-description:
+        description: '埋め込みメッセージの説明（任意）'
+        required: false
+        type: string
+      embed-color:
+        description: '埋め込みメッセージの色（16進数、任意）'
+        required: false
+        type: string
+        default: '0099ff'
+
+jobs:
+  send-to-discord:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Download Image Artifact
+      if: ${{ inputs.file-path == '' }}
+      uses: actions/download-artifact@v4
+      with:
+        name: morning-image
+        path: ./
+      continue-on-error: true
+      
+    - name: Check Downloaded Files
+      run: |
+        echo "📁 Checking for images..."
+        ls -la ./ | grep -E "\.(png|jpg|jpeg|gif)" || echo "No image files found"
+        if [ -f "morning-image.png" ]; then
+          echo "✅ Image file found: morning-image.png"
+          echo "📊 File size: $(stat -c%s morning-image.png 2>/dev/null || stat -f%z morning-image.png) bytes"
+        fi
+        
+    - name: Debug Inputs
+      run: |
+        echo "🔍 Discord Sender Debug:"
+        echo "Message received: '${{ inputs.message }}'"
+        echo "Message is not empty: ${{ inputs.message != '' }}"
+        
+    - name: Send message to Discord
+      if: ${{ inputs.message != '' }}
+      env:
+        CONTENT: ${{ inputs.message }}
+      run: |
+        echo "📤 Sending message to Discord..."
+        
+        # jqを使って適切なJSONを作成（環境変数経由で安全に受け渡し）
+        JSON_PAYLOAD=$(jq -n --arg content "$CONTENT" '{content: $content}')
+        echo "🔍 JSON Payload: $JSON_PAYLOAD"
+        
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+          -H "Content-Type: application/json" \
+          -d "$JSON_PAYLOAD" \
+          "${{ secrets.DISCORD_WEBHOOK_URL }}")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "HTTP Status: $HTTP_CODE"
+        
+        if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Message sent to Discord successfully"
+        else
+          echo "❌ Failed to send message to Discord (HTTP $HTTP_CODE)"
+          echo "Response: $BODY"
+          exit 1
+        fi
+        
+    - name: Send embed to Discord
+      if: ${{ inputs.embed-title != '' && inputs.embed-description != '' }}
+      run: |
+        curl -H "Content-Type: application/json" \
+             -d "{\"embeds\": [{\"title\": \"${{ inputs.embed-title }}\", \"description\": \"${{ inputs.embed-description }}\", \"color\": ${{ inputs.embed-color }}, \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)\"}]}" \
+             "${{ secrets.DISCORD_WEBHOOK_URL }}"
