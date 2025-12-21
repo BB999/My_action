@@ -4,42 +4,35 @@ on:
   workflow_dispatch:
 
 env:
-  PROMPT_FILE: 'prompt/prompt/prompt.md'
   IMAGE_PATH: 'images/noranekob_samen.png'
   ASPECT_RATIO: 'auto'
   OUTPUT_FORMAT: 'png'
   NUM_IMAGES: 1
 
 jobs:
-  # Step 1: FALに画像をアップロード
+  # Step 1: プロンプトを生成
+  generate-prompt:
+    uses: ./.github/workflows/prompt-generator.yml
+
+  # Step 2: FALに画像をアップロード
   upload-image:
     uses: ./.github/workflows/fal-image-upload.yml
     with:
       image_path: images/noranekob_samen.png
     secrets: inherit
 
-  # Step 2: 画像を編集
+  # Step 3: 画像を編集
   edit-image:
     runs-on: ubuntu-latest
-    needs: upload-image
+    needs: [generate-prompt, upload-image]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug - Show uploaded image URL
+      - name: Debug - Show info
         run: |
           echo "📷 Uploaded image URL: ${{ needs.upload-image.outputs.upload-url }}"
-          echo "📊 Upload status: ${{ needs.upload-image.outputs.upload-status }}"
-
-      - name: Read prompt from file
-        id: read_prompt
-        run: |
-          PROMPT=$(cat "${{ env.PROMPT_FILE }}")
-          echo "📝 Prompt content:"
-          echo "$PROMPT"
-          echo "prompt<<EOF" >> $GITHUB_OUTPUT
-          echo "$PROMPT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "📝 Generated prompt: ${{ needs.generate-prompt.outputs.prompt }}"
 
       - name: Initialize MCP session
         id: init_session
@@ -54,7 +47,6 @@ jobs:
             -H "Accept: application/json, text/event-stream" \
             -d '{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"github-actions","version":"1.0.0"}}}')
 
-          # セッションIDを抽出
           SESSION_ID=$(echo "$RESPONSE" | grep -i "mcp-session-id:" | sed 's/mcp-session-id: //i' | tr -d '\r')
 
           if [ -z "$SESSION_ID" ]; then
@@ -70,14 +62,12 @@ jobs:
         id: submit
         env:
           KAMUI_CODE_PASS: ${{ secrets.KAMUI_CODE_PASS }}
+          PROMPT: ${{ needs.generate-prompt.outputs.prompt }}
         run: |
           echo "🚀 Submitting image edit request..."
 
-          # プロンプトをJSONセーフにエスケープ
-          PROMPT='${{ steps.read_prompt.outputs.prompt }}'
           PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.' | sed 's/^"//;s/"$//')
 
-          # デバッグ: 送信するデータを表示
           echo "📤 Sending request with:"
           echo "  - image_url: ${{ needs.upload-image.outputs.upload-url }}"
           echo "  - aspect_ratio: ${{ env.ASPECT_RATIO }}"
@@ -94,7 +84,6 @@ jobs:
 
           echo "📥 Response: $RESPONSE"
 
-          # JSONRPCレスポンスからrequest_idを抽出
           REQUEST_ID=$(echo "$RESPONSE" | jq -r '.result.content[0].text' | jq -r '.request_id')
 
           if [ "$REQUEST_ID" = "null" ] || [ -z "$REQUEST_ID" ]; then
@@ -159,12 +148,10 @@ jobs:
 
           echo "📦 Result Response: $RESULT_RESPONSE"
 
-          # JSONRPCレスポンスから結果を抽出
           RESULT=$(echo "$RESULT_RESPONSE" | jq -r '.result.content[0].text')
 
           echo "📦 Result: $RESULT"
 
-          # GitHub Outputに保存（改行をエスケープ）
           echo "result<<EOF" >> $GITHUB_OUTPUT
           echo "$RESULT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -177,7 +164,6 @@ jobs:
 
           echo "📦 Processing result..."
 
-          # 複数のパターンでURLを抽出
           URLS=$(echo "$RESULT_JSON" | jq -r '
             .images[]?.url // empty,
             .image_url // empty,
@@ -213,8 +199,15 @@ jobs:
           retention-days: 7
 
       - name: Summary
+        env:
+          PROMPT: ${{ needs.generate-prompt.outputs.prompt }}
         run: |
           echo "## 🎨 Image Edit Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Prompt:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$PROMPT" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Settings:**" >> $GITHUB_STEP_SUMMARY
           echo "- Aspect Ratio: ${{ env.ASPECT_RATIO }}" >> $GITHUB_STEP_SUMMARY
@@ -223,7 +216,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 Check the **Artifacts** section below to download the edited images." >> $GITHUB_STEP_SUMMARY
 
-  # Step 3: Discordに送信
+  # Step 4: Discordに送信
   send-to-discord:
     needs: edit-image
     uses: ./.github/workflows/discord-sender.yml

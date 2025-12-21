@@ -1,0 +1,61 @@
+name: Prompt Generator
+
+on:
+  workflow_call:
+    outputs:
+      prompt:
+        description: 'Generated prompt'
+        value: ${{ jobs.generate-prompt.outputs.prompt }}
+
+jobs:
+  generate-prompt:
+    runs-on: ubuntu-latest
+    outputs:
+      prompt: ${{ steps.generate.outputs.prompt }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate random prompt
+        id: generate
+        run: |
+          # シチュエーションのリスト（英語）
+          SITUATIONS=(
+            "She leans sideways against the metal railing along the Sumida River, both arms resting loosely on top. Her upper body folds slightly forward; she shifts her weight onto one hip. Behind her, trains cross the distant bridge, sunlight glancing off windows. The shape of her posture mirrors the rhythm of the rails and horizon."
+            "She stands at a busy Tokyo crosswalk, waiting for the light. Her hands grip the strap of her shoulder bag, eyes tracing the flow of people. Neon signs reflect off wet pavement, blending urban chaos with quiet anticipation."
+            "She sits on a weathered wooden bench in a quiet park, legs crossed, reading a paperback. Cherry blossom petals drift past her shoulder. Soft afternoon light filters through the branches above."
+            "She walks through a narrow alley in Kyoto, one hand brushing against the old wooden walls. Lanterns sway gently overhead. Her silhouette stretches long on the stone path as evening approaches."
+            "She leans against a vending machine at night, the glow illuminating her face in blue and orange. She holds a warm can of coffee, steam rising. The empty street behind her fades into darkness."
+            "She stands at a train platform, gazing at the arriving train. Wind from the approaching cars lifts her hair slightly. Commuters blur past, but she remains still, lost in thought."
+            "She crouches by a small shrine, hands pressed together in prayer. Morning mist clings to the stone steps. A cat watches her from the torii gate."
+            "She sits at a ramen counter, chopsticks poised, steam rising from the bowl. The chef works behind the counter. Warm yellow light fills the tiny shop."
+            "She walks along the beach at sunset, shoes in hand, waves lapping at her ankles. The horizon burns orange and purple. Her footprints trail behind in the wet sand."
+            "She stands on a rooftop overlooking the city skyline at dusk. Wind tugs at her clothes. Lights begin to flicker on in the buildings below, one by one."
+          )
+
+          # ランダムに選択
+          RANDOM_INDEX=$((RANDOM % ${#SITUATIONS[@]}))
+          SITUATION="${SITUATIONS[$RANDOM_INDEX]}"
+
+          # ②のプロンプトを追加
+          SUFFIX="Placed within a live-action background that matches the illustration's posture and composition — while faithfully preserving the illustrated texture and style. Realistic lighting, depth of field, and subtle filming effects are applied to blend the illustration seamlessly with the real environment."
+
+          # 最終プロンプトを生成
+          FINAL_PROMPT="${SITUATION} ${SUFFIX}"
+
+          echo "📝 Generated prompt:"
+          echo "$FINAL_PROMPT"
+
+          # GitHub Outputに保存
+          echo "prompt<<EOF" >> $GITHUB_OUTPUT
+          echo "$FINAL_PROMPT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Summary
+        run: |
+          echo "## 📝 Prompt Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.generate.outputs.prompt }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

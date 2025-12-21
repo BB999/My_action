@@ -1,14 +1,6 @@
-萌え絵漫画風の作風・演出・表情表現を重視した漫画を生成してください。 
-日本の漫画形式として、右から左・上から下へと自然に読めるコマ割りにしてください。
-コマの配置や形状は自由ですが、視線誘導だけは日本式の読み順に従わせてください。
-均一なレイアウトではなく、変則的または自由配置のコマ構成でお願いします。
-見開き2ページを2枚の画像で生成してください。
-i2iのnanobannaで画像を生成
-セリフの形式は日本の漫画に従ってください
+①シチュエーション・構図を定義する
+┗どういう内容のカットか指定します。（下記は一例）
+She leans sideways against the metal railing along the Sumida River, both arms resting loosely on top. Her upper body folds slightly forward; she shifts her weight onto one hip. Behind her, trains cross the distant bridge, sunlight glancing off windows. The shape of her posture mirrors the rhythm of the rails and horizon.
 
-[登場キャラクター]
-「ねこび」 [imagesのnoranekob_samen.png]の画像を参考にして
-
-必ずフルカラーの漫画として生成してください。
-題材は以下の通り
-- 既存のthree.jsアプリをAIでwebXR対応できる漫画を詳細に
+②下記のプロンプトを後ろに足します。（これが実写アニメ合成に効きました）
+Placed within a live-action background that matches the illustration’s posture and composition — while faithfully preserving the illustrated texture and style. Realistic lighting, depth of field, and subtle filming effects are applied to blend the illustration seamlessly with the real environment.
