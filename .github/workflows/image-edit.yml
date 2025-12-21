@@ -2,59 +2,20 @@ name: Image Edit with Nano Banana Pro
 
 on:
   workflow_dispatch:
-    inputs:
-      prompt_file:
-        description: 'プロンプトファイルのパス'
-        required: false
-        type: string
-        default: 'prompt/prompt/prompt.md'
-      prompt:
-        description: '編集のプロンプト（ファイルより優先）'
-        required: false
-        type: string
-      image_path:
-        description: '編集する画像のパス (リポジトリ内)'
-        required: true
-        type: string
-        default: 'images/noranekob_samen.png'
-      aspect_ratio:
-        description: 'アスペクト比'
-        required: false
-        default: 'auto'
-        type: choice
-        options:
-          - auto
-          - 21:9
-          - 16:9
-          - 3:2
-          - 4:3
-          - 5:4
-          - 1:1
-          - 4:5
-          - 3:4
-          - 2:3
-          - 9:16
-      output_format:
-        description: '出力フォーマット'
-        required: false
-        default: 'png'
-        type: choice
-        options:
-          - jpeg
-          - png
-          - webp
-      num_images:
-        description: '生成する画像の数'
-        required: false
-        default: '1'
-        type: string
+
+env:
+  PROMPT_FILE: 'prompt/prompt/prompt.md'
+  IMAGE_PATH: 'images/noranekob_samen.png'
+  ASPECT_RATIO: 'auto'
+  OUTPUT_FORMAT: 'png'
+  NUM_IMAGES: 1
 
 jobs:
   # Step 1: FALに画像をアップロード
   upload-image:
     uses: ./.github/workflows/fal-image-upload.yml
     with:
-      image_path: ${{ inputs.image_path }}
+      image_path: images/noranekob_samen.png
     secrets: inherit
 
   # Step 2: 画像を編集
@@ -73,22 +34,9 @@ jobs:
       - name: Read prompt from file
         id: read_prompt
         run: |
-          # 直接入力のプロンプトがあればそれを使用、なければファイルから読む
-          if [ -n "${{ inputs.prompt }}" ]; then
-            echo "📝 Using direct prompt input"
-            PROMPT="${{ inputs.prompt }}"
-          elif [ -f "${{ inputs.prompt_file }}" ]; then
-            echo "📄 Reading prompt from: ${{ inputs.prompt_file }}"
-            PROMPT=$(cat "${{ inputs.prompt_file }}")
-          else
-            echo "❌ No prompt provided and file not found: ${{ inputs.prompt_file }}"
-            exit 1
-          fi
-
+          PROMPT=$(cat "${{ env.PROMPT_FILE }}")
           echo "📝 Prompt content:"
           echo "$PROMPT"
-
-          # 改行をエスケープしてGitHub Outputに保存
           echo "prompt<<EOF" >> $GITHUB_OUTPUT
           echo "$PROMPT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -132,9 +80,9 @@ jobs:
           # デバッグ: 送信するデータを表示
           echo "📤 Sending request with:"
           echo "  - image_url: ${{ needs.upload-image.outputs.upload-url }}"
-          echo "  - aspect_ratio: ${{ inputs.aspect_ratio }}"
-          echo "  - output_format: ${{ inputs.output_format }}"
-          echo "  - num_images: ${{ inputs.num_images }}"
+          echo "  - aspect_ratio: ${{ env.ASPECT_RATIO }}"
+          echo "  - output_format: ${{ env.OUTPUT_FORMAT }}"
+          echo "  - num_images: ${{ env.NUM_IMAGES }}"
 
           SESSION_ID="${{ steps.init_session.outputs.session_id }}"
 
@@ -142,7 +90,7 @@ jobs:
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
             -H "Mcp-Session-Id: $SESSION_ID" \
-            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":2,\"params\":{\"name\":\"nano_banana_pro_edit_submit\",\"arguments\":{\"prompt\":\"$PROMPT_ESCAPED\",\"image_urls\":[\"${{ needs.upload-image.outputs.upload-url }}\"],\"aspect_ratio\":\"${{ inputs.aspect_ratio }}\",\"output_format\":\"${{ inputs.output_format }}\",\"num_images\":${{ inputs.num_images }}}}}")
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":2,\"params\":{\"name\":\"nano_banana_pro_edit_submit\",\"arguments\":{\"prompt\":\"$PROMPT_ESCAPED\",\"image_urls\":[\"${{ needs.upload-image.outputs.upload-url }}\"],\"aspect_ratio\":\"${{ env.ASPECT_RATIO }}\",\"output_format\":\"${{ env.OUTPUT_FORMAT }}\",\"num_images\":${{ env.NUM_IMAGES }}}}}")
 
           echo "📥 Response: $RESPONSE"
 
@@ -246,7 +194,7 @@ jobs:
           COUNT=1
           echo "$URLS" | while read -r url; do
             if [ -n "$url" ]; then
-              FILENAME="edited_image_${COUNT}.${{ inputs.output_format }}"
+              FILENAME="edited_image_${COUNT}.${{ env.OUTPUT_FORMAT }}"
               echo "📥 Downloading: $url -> $FILENAME"
               curl -s -L -o "output/$FILENAME" "$url"
               COUNT=$((COUNT + 1))
@@ -268,12 +216,10 @@ jobs:
         run: |
           echo "## 🎨 Image Edit Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Prompt:** ${{ inputs.prompt }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Settings:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Aspect Ratio: ${{ inputs.aspect_ratio }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Output Format: ${{ inputs.output_format }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Number of Images: ${{ inputs.num_images }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Aspect Ratio: ${{ env.ASPECT_RATIO }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Output Format: ${{ env.OUTPUT_FORMAT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Number of Images: ${{ env.NUM_IMAGES }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📦 Check the **Artifacts** section below to download the edited images." >> $GITHUB_STEP_SUMMARY
 
