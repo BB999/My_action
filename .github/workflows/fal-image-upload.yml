@@ -67,7 +67,17 @@ jobs:
         fi
 
         echo "File exists: ${{ inputs.image_path }}"
-        python3 scripts/upload_to_fal.py "${{ inputs.image_path }}"
+
+        URL=$(python3 -c "
+import fal_client
+url = fal_client.upload_file('${{ inputs.image_path }}')
+print(url)
+")
+
+        echo "Upload successful!"
+        echo "URL: $URL"
+        echo "url=$URL" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
 
     - name: Output results
       run: |
