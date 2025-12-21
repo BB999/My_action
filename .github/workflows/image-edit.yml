@@ -3,6 +3,10 @@ name: Image Edit with Nano Banana Pro
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   IMAGE_PATH: 'images/noranekob_samen.png'
   ASPECT_RATIO: 'auto'
