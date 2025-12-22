@@ -42,20 +42,44 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+
+            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 1
         id: check1
         env:
           CLAUDE_RESULT: ${{ steps.claude1.outputs.result }}
+          EXECUTION_FILE: ${{ steps.claude1.outputs.execution_file }}
         run: |
-          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          echo "📄 CLAUDE_RESULT length: ${#CLAUDE_RESULT}"
+          echo "📄 EXECUTION_FILE: $EXECUTION_FILE"
+
+          RESULT=""
+
+          # まずresult出力を試す
+          if [ -n "$CLAUDE_RESULT" ]; then
+            RESULT="$CLAUDE_RESULT"
+            echo "✅ Using outputs.result"
+          elif [ -f "$EXECUTION_FILE" ]; then
+            echo "📋 Parsing execution file..."
+            RESULT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            if [ -z "$RESULT" ]; then
+              # 配列形式の場合
+              RESULT=$(jq -r 'if type == "array" then (map(select(.type == "result")) | last | .result) // empty else empty end' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            fi
+            echo "✅ Using execution_file"
+          fi
+
+          echo "📄 Final result length: ${#RESULT}"
+
+          TRIMMED=$(echo "$RESULT" | tr -d '[:space:]')
           if [ -n "$TRIMMED" ]; then
             echo "✅ Attempt 1: Success"
             echo "success=true" >> $GITHUB_OUTPUT
             {
               echo "result<<RESULTEOF"
-              echo "$CLAUDE_RESULT"
+              echo "$RESULT"
               echo "RESULTEOF"
             } >> $GITHUB_OUTPUT
           else
@@ -72,21 +96,43 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+
+            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 2
         id: check2
         if: steps.check1.outputs.success != 'true'
         env:
           CLAUDE_RESULT: ${{ steps.claude2.outputs.result }}
+          EXECUTION_FILE: ${{ steps.claude2.outputs.execution_file }}
         run: |
-          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          echo "📄 CLAUDE_RESULT length: ${#CLAUDE_RESULT}"
+          echo "📄 EXECUTION_FILE: $EXECUTION_FILE"
+
+          RESULT=""
+
+          if [ -n "$CLAUDE_RESULT" ]; then
+            RESULT="$CLAUDE_RESULT"
+            echo "✅ Using outputs.result"
+          elif [ -f "$EXECUTION_FILE" ]; then
+            echo "📋 Parsing execution file..."
+            RESULT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            if [ -z "$RESULT" ]; then
+              RESULT=$(jq -r 'if type == "array" then (map(select(.type == "result")) | last | .result) // empty else empty end' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            fi
+            echo "✅ Using execution_file"
+          fi
+
+          echo "📄 Final result length: ${#RESULT}"
+
+          TRIMMED=$(echo "$RESULT" | tr -d '[:space:]')
           if [ -n "$TRIMMED" ]; then
             echo "✅ Attempt 2: Success"
             echo "success=true" >> $GITHUB_OUTPUT
             {
               echo "result<<RESULTEOF"
-              echo "$CLAUDE_RESULT"
+              echo "$RESULT"
               echo "RESULTEOF"
             } >> $GITHUB_OUTPUT
           else
@@ -103,21 +149,43 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+
+            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 3
         id: check3
         if: steps.check1.outputs.success != 'true' && steps.check2.outputs.success != 'true'
         env:
           CLAUDE_RESULT: ${{ steps.claude3.outputs.result }}
+          EXECUTION_FILE: ${{ steps.claude3.outputs.execution_file }}
         run: |
-          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          echo "📄 CLAUDE_RESULT length: ${#CLAUDE_RESULT}"
+          echo "📄 EXECUTION_FILE: $EXECUTION_FILE"
+
+          RESULT=""
+
+          if [ -n "$CLAUDE_RESULT" ]; then
+            RESULT="$CLAUDE_RESULT"
+            echo "✅ Using outputs.result"
+          elif [ -f "$EXECUTION_FILE" ]; then
+            echo "📋 Parsing execution file..."
+            RESULT=$(jq -r '.result // empty' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            if [ -z "$RESULT" ]; then
+              RESULT=$(jq -r 'if type == "array" then (map(select(.type == "result")) | last | .result) // empty else empty end' "$EXECUTION_FILE" 2>/dev/null || echo "")
+            fi
+            echo "✅ Using execution_file"
+          fi
+
+          echo "📄 Final result length: ${#RESULT}"
+
+          TRIMMED=$(echo "$RESULT" | tr -d '[:space:]')
           if [ -n "$TRIMMED" ]; then
             echo "✅ Attempt 3: Success"
             echo "success=true" >> $GITHUB_OUTPUT
             {
               echo "result<<RESULTEOF"
-              echo "$CLAUDE_RESULT"
+              echo "$RESULT"
               echo "RESULTEOF"
             } >> $GITHUB_OUTPUT
           else
