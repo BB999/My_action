@@ -10,8 +10,12 @@ permissions:
 env:
   IMAGE_PATH: 'images/noranekob_samen.png'
   ASPECT_RATIO: 'auto'
+  RESOLUTION: '1K'
   OUTPUT_FORMAT: 'png'
   NUM_IMAGES: 1
+  ENABLE_WEB_SEARCH: 'false'
+  LIMIT_GENERATIONS: 'false'
+  SYNC_MODE: 'false'
 
 jobs:
   # Step 1: プロンプトを生成
@@ -84,8 +88,12 @@ jobs:
           echo "📤 Sending request with:"
           echo "  - image_url: ${{ needs.upload-image.outputs.upload-url }}"
           echo "  - aspect_ratio: ${{ env.ASPECT_RATIO }}"
+          echo "  - resolution: ${{ env.RESOLUTION }}"
           echo "  - output_format: ${{ env.OUTPUT_FORMAT }}"
           echo "  - num_images: ${{ env.NUM_IMAGES }}"
+          echo "  - enable_web_search: ${{ env.ENABLE_WEB_SEARCH }}"
+          echo "  - limit_generations: ${{ env.LIMIT_GENERATIONS }}"
+          echo "  - sync_mode: ${{ env.SYNC_MODE }}"
 
           SESSION_ID="${{ steps.init_session.outputs.session_id }}"
 
@@ -93,7 +101,7 @@ jobs:
             -H "KAMUI-CODE-PASS: $KAMUI_CODE_PASS" \
             -H "Content-Type: application/json" \
             -H "Mcp-Session-Id: $SESSION_ID" \
-            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":2,\"params\":{\"name\":\"nano_banana_pro_edit_submit\",\"arguments\":{\"prompt\":\"$PROMPT_ESCAPED\",\"image_urls\":[\"${{ needs.upload-image.outputs.upload-url }}\"],\"aspect_ratio\":\"${{ env.ASPECT_RATIO }}\",\"output_format\":\"${{ env.OUTPUT_FORMAT }}\",\"num_images\":${{ env.NUM_IMAGES }}}}}")
+            -d "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"id\":2,\"params\":{\"name\":\"nano_banana_pro_edit_submit\",\"arguments\":{\"prompt\":\"$PROMPT_ESCAPED\",\"image_urls\":[\"${{ needs.upload-image.outputs.upload-url }}\"],\"aspect_ratio\":\"${{ env.ASPECT_RATIO }}\",\"resolution\":\"${{ env.RESOLUTION }}\",\"output_format\":\"${{ env.OUTPUT_FORMAT }}\",\"num_images\":${{ env.NUM_IMAGES }},\"enable_web_search\":${{ env.ENABLE_WEB_SEARCH }},\"limit_generations\":${{ env.LIMIT_GENERATIONS }},\"sync_mode\":${{ env.SYNC_MODE }}}}}")
 
           echo "📥 Response: $RESPONSE"
 
