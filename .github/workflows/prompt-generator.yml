@@ -54,17 +54,25 @@ jobs:
         id: extract
         env:
           EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          CLAUDE_RESULT: ${{ steps.claude.outputs.result }}
           SUFFIX: ${{ steps.read_prompt.outputs.suffix }}
         run: |
           echo "📄 Execution file: $EXECUTION_FILE"
+          echo "📄 Claude result output: $CLAUDE_RESULT"
 
-          # Claude出力ファイルからassistantの最後のメッセージを抽出
-          if [ -f "$EXECUTION_FILE" ]; then
+          # まずClaude Code Actionのresult出力を試す（最も信頼性が高い）
+          CLAUDE_OUTPUT=""
+
+          if [ -n "$CLAUDE_RESULT" ]; then
+            echo "✅ Using Claude result output directly"
+            CLAUDE_OUTPUT="$CLAUDE_RESULT"
+          elif [ -f "$EXECUTION_FILE" ]; then
+            echo "📋 Fallback: Parsing execution file"
             echo "📋 JSON structure (keys):"
-            jq 'keys' "$EXECUTION_FILE"
+            jq 'keys' "$EXECUTION_FILE" 2>/dev/null || echo "(not a JSON object)"
             echo ""
-            echo "📋 Full JSON:"
-            jq '.' "$EXECUTION_FILE" | head -100
+            echo "📋 Full JSON (first 100 lines):"
+            jq '.' "$EXECUTION_FILE" 2>/dev/null | head -100 || cat "$EXECUTION_FILE" | head -100
 
             # 様々なパターンを試す
             CLAUDE_OUTPUT=$(jq -r '
@@ -83,13 +91,21 @@ jobs:
               end // empty
             ' "$EXECUTION_FILE" 2>/dev/null || echo "")
           else
-            echo "❌ Execution file not found"
-            CLAUDE_OUTPUT=""
+            echo "❌ No execution file and no result output"
           fi
 
-          echo "🤖 Claude generated:"
-          echo "$CLAUDE_OUTPUT"
+          # 空白のみの場合はエラー
+          if [ -z "$(echo "$CLAUDE_OUTPUT" | tr -d '[:space:]')" ]; then
+            echo "⚠️ Warning: Claude output is empty!"
+          fi
 
+          echo ""
+          echo "🤖 Claude generated:"
+          echo "========================================"
+          echo "$CLAUDE_OUTPUT"
+          echo "========================================"
+
+          echo ""
           echo "📋 Suffix from prompt.md:"
           echo "$SUFFIX"
 
@@ -98,12 +114,19 @@ jobs:
 
           echo ""
           echo "📝 Final prompt:"
+          echo "========================================"
           echo "$FINAL_PROMPT"
+          echo "========================================"
 
-          # GitHub Outputに保存
-          echo "prompt<<EOF" >> $GITHUB_OUTPUT
-          echo "$FINAL_PROMPT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # GitHub Outputに保存（heredocを使用して改行を保持）
+          {
+            echo "prompt<<PROMPTEOF"
+            echo "$FINAL_PROMPT"
+            echo "PROMPTEOF"
+          } >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "✅ Prompt saved to GITHUB_OUTPUT"
 
       - name: Summary
         env:
