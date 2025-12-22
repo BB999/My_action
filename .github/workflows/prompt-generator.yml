@@ -41,7 +41,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique pose and facial expression for ${{ steps.read_prompt.outputs.character }} in Japanese anime style that energizes and inspires the viewer.
+            Generate a unique pose and facial expression for ${{ steps.read_prompt.outputs.character }} in Japanese anime style that energizes and inspires the viewer. Always include the full character description: ${{ steps.read_prompt.outputs.character }}.
 
       - name: Extract and build prompt
         id: extract
