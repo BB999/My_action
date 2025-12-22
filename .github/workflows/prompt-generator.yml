@@ -75,17 +75,20 @@ jobs:
             jq '.' "$EXECUTION_FILE" 2>/dev/null | head -100 || cat "$EXECUTION_FILE" | head -100
 
             # 様々なパターンを試す
+            # Claude Code Actionの出力形式: 配列で、type="assistant"の要素にmessage.content[].textがある
             CLAUDE_OUTPUT=$(jq -r '
               if type == "array" then
-                map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end
-              elif .turns then
-                .turns | map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end
-              elif .messages then
-                .messages | map(select(.role == "assistant")) | last | .content
-              elif .response then
-                .response
+                # type == "assistant" の要素を探す（Claude Code Action形式）
+                (map(select(.type == "assistant")) | last | .message.content | map(select(.type == "text")) | .[0].text) //
+                # role == "assistant" の要素を探す（旧形式）
+                (map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end) //
+                # 最後の要素の result フィールドを探す
+                (last | .result) //
+                empty
               elif .result then
                 .result
+              elif .response then
+                .response
               else
                 empty
               end // empty
