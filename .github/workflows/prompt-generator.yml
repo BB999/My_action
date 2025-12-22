@@ -41,7 +41,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            ${{ steps.read_prompt.outputs.character }}のユニークで映画的なシーン描写を生成して。
+            Generate a unique cinematic scene description for ${{ steps.read_prompt.outputs.character }}.
 
       - name: Extract and build prompt
         id: extract
