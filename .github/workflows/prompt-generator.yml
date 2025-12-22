@@ -49,15 +49,14 @@ jobs:
             Generate a unique, cinematic scene description for ${{ steps.read_prompt.outputs.character }} in a real Japanese location.
 
             Requirements:
-            - Describe a dynamic POSE (standing, walking, jumping, stretching, lying down, running, climbing, etc. - avoid sitting unless it fits the scene perfectly)
+            - Describe a dynamic POSE (standing, walking, jumping, stretching, lying down, running, climbing, etc.)
             - Include FACIAL EXPRESSION (smiling, curious, sleepy, excited, relaxed, proud, mischievous, etc.)
             - Describe the environment, lighting, and atmosphere
             - Be specific about body language and surroundings
             - 2-3 sentences total
+            - Be creative and unique each time
 
             Output ONLY the English description, no explanations or labels.
-
-            Example style: ${{ steps.read_prompt.outputs.example }}
 
       - name: Extract and build prompt
         id: extract
