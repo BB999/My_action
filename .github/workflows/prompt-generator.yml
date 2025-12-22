@@ -15,7 +15,7 @@ jobs:
   generate-prompt:
     runs-on: ubuntu-latest
     outputs:
-      prompt: ${{ steps.extract.outputs.prompt }}
+      prompt: ${{ steps.final.outputs.prompt }}
 
     steps:
       - name: Checkout
@@ -34,8 +34,9 @@ jobs:
           echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
           echo "📋 Suffix: $SUFFIX"
 
-      - name: Generate situation with Claude
-        id: claude
+      # 1回目の試行
+      - name: Generate situation with Claude (Attempt 1)
+        id: claude1
         uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -43,56 +44,127 @@ jobs:
           direct_prompt: |
             Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
 
-      - name: Extract and build prompt
-        id: extract
+      - name: Check result 1
+        id: check1
         env:
-          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
-          CLAUDE_RESULT: ${{ steps.claude.outputs.result }}
-          SUFFIX: ${{ steps.read_prompt.outputs.suffix }}
+          CLAUDE_RESULT: ${{ steps.claude1.outputs.result }}
         run: |
-          echo "📄 Execution file: $EXECUTION_FILE"
-          echo "📄 Claude result output: $CLAUDE_RESULT"
-
-          # まずClaude Code Actionのresult出力を試す（最も信頼性が高い）
-          CLAUDE_OUTPUT=""
-
-          if [ -n "$CLAUDE_RESULT" ]; then
-            echo "✅ Using Claude result output directly"
-            CLAUDE_OUTPUT="$CLAUDE_RESULT"
-          elif [ -f "$EXECUTION_FILE" ]; then
-            echo "📋 Fallback: Parsing execution file"
-            echo "📋 JSON structure (keys):"
-            jq 'keys' "$EXECUTION_FILE" 2>/dev/null || echo "(not a JSON object)"
-            echo ""
-            echo "📋 Full JSON (first 100 lines):"
-            jq '.' "$EXECUTION_FILE" 2>/dev/null | head -100 || cat "$EXECUTION_FILE" | head -100
-
-            # 様々なパターンを試す
-            # Claude Code Actionの出力形式: 配列で、type="assistant"の要素にmessage.content[].textがある
-            CLAUDE_OUTPUT=$(jq -r '
-              if type == "array" then
-                # type == "assistant" の要素を探す（Claude Code Action形式）
-                (map(select(.type == "assistant")) | last | .message.content | map(select(.type == "text")) | .[0].text) //
-                # role == "assistant" の要素を探す（旧形式）
-                (map(select(.role == "assistant")) | last | .content | if type == "array" then map(select(.type == "text")) | .[0].text else . end) //
-                # 最後の要素の result フィールドを探す
-                (last | .result) //
-                empty
-              elif .result then
-                .result
-              elif .response then
-                .response
-              else
-                empty
-              end // empty
-            ' "$EXECUTION_FILE" 2>/dev/null || echo "")
+          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          if [ -n "$TRIMMED" ]; then
+            echo "✅ Attempt 1: Success"
+            echo "success=true" >> $GITHUB_OUTPUT
+            {
+              echo "result<<RESULTEOF"
+              echo "$CLAUDE_RESULT"
+              echo "RESULTEOF"
+            } >> $GITHUB_OUTPUT
           else
-            echo "❌ No execution file and no result output"
+            echo "⚠️ Attempt 1: Empty output"
+            echo "success=false" >> $GITHUB_OUTPUT
           fi
 
-          # 空白のみの場合はエラー
-          if [ -z "$(echo "$CLAUDE_OUTPUT" | tr -d '[:space:]')" ]; then
-            echo "⚠️ Warning: Claude output is empty!"
+      # 2回目の試行（1回目が失敗した場合）
+      - name: Generate situation with Claude (Attempt 2)
+        id: claude2
+        if: steps.check1.outputs.success != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          mode: agent
+          direct_prompt: |
+            Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
+
+      - name: Check result 2
+        id: check2
+        if: steps.check1.outputs.success != 'true'
+        env:
+          CLAUDE_RESULT: ${{ steps.claude2.outputs.result }}
+        run: |
+          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          if [ -n "$TRIMMED" ]; then
+            echo "✅ Attempt 2: Success"
+            echo "success=true" >> $GITHUB_OUTPUT
+            {
+              echo "result<<RESULTEOF"
+              echo "$CLAUDE_RESULT"
+              echo "RESULTEOF"
+            } >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Attempt 2: Empty output"
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 3回目の試行（2回目も失敗した場合）
+      - name: Generate situation with Claude (Attempt 3)
+        id: claude3
+        if: steps.check1.outputs.success != 'true' && steps.check2.outputs.success != 'true'
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          mode: agent
+          direct_prompt: |
+            Generate a unique anime scene for ${{ steps.read_prompt.outputs.character }} that energizes and inspires the viewer.
+
+      - name: Check result 3
+        id: check3
+        if: steps.check1.outputs.success != 'true' && steps.check2.outputs.success != 'true'
+        env:
+          CLAUDE_RESULT: ${{ steps.claude3.outputs.result }}
+        run: |
+          TRIMMED=$(echo "$CLAUDE_RESULT" | tr -d '[:space:]')
+          if [ -n "$TRIMMED" ]; then
+            echo "✅ Attempt 3: Success"
+            echo "success=true" >> $GITHUB_OUTPUT
+            {
+              echo "result<<RESULTEOF"
+              echo "$CLAUDE_RESULT"
+              echo "RESULTEOF"
+            } >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Attempt 3: Empty output"
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 最終結果の処理
+      - name: Build final prompt
+        id: final
+        env:
+          RESULT1: ${{ steps.check1.outputs.result }}
+          RESULT2: ${{ steps.check2.outputs.result }}
+          RESULT3: ${{ steps.check3.outputs.result }}
+          SUCCESS1: ${{ steps.check1.outputs.success }}
+          SUCCESS2: ${{ steps.check2.outputs.success }}
+          SUCCESS3: ${{ steps.check3.outputs.success }}
+          SUFFIX: ${{ steps.read_prompt.outputs.suffix }}
+        run: |
+          echo "📊 Results summary:"
+          echo "  - Attempt 1: $SUCCESS1"
+          echo "  - Attempt 2: $SUCCESS2"
+          echo "  - Attempt 3: $SUCCESS3"
+
+          CLAUDE_OUTPUT=""
+
+          if [ "$SUCCESS1" = "true" ]; then
+            echo "✅ Using result from attempt 1"
+            CLAUDE_OUTPUT="$RESULT1"
+          elif [ "$SUCCESS2" = "true" ]; then
+            echo "✅ Using result from attempt 2"
+            CLAUDE_OUTPUT="$RESULT2"
+          elif [ "$SUCCESS3" = "true" ]; then
+            echo "✅ Using result from attempt 3"
+            CLAUDE_OUTPUT="$RESULT3"
+          else
+            echo ""
+            echo "❌❌❌ ERROR: All 3 attempts failed to generate prompt ❌❌❌"
+            echo ""
+            echo "📋 Debug information:"
+            echo "  - Attempt 1 result length: ${#RESULT1}"
+            echo "  - Attempt 2 result length: ${#RESULT2}"
+            echo "  - Attempt 3 result length: ${#RESULT3}"
+            echo ""
+            echo "Claude output was empty on all attempts."
+            echo "Please check the Claude Code Action logs above for more details."
+            exit 1
           fi
 
           echo ""
@@ -126,7 +198,7 @@ jobs:
 
       - name: Summary
         env:
-          PROMPT: ${{ steps.extract.outputs.prompt }}
+          PROMPT: ${{ steps.final.outputs.prompt }}
         run: |
           echo "## 📝 Prompt Generated by Claude" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
