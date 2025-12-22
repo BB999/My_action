@@ -37,8 +37,15 @@ jobs:
 
       - name: Debug - Show info
         run: |
-          echo "📷 Uploaded image URL: ${{ needs.upload-image.outputs.upload-url }}"
-          echo "📝 Generated prompt: ${{ needs.generate-prompt.outputs.prompt }}"
+          echo "========================================"
+          echo "📷 Uploaded image URL:"
+          echo "${{ needs.upload-image.outputs.upload-url }}"
+          echo "========================================"
+          echo "📝 Generated prompt:"
+          echo "----------------------------------------"
+          echo "${{ needs.generate-prompt.outputs.prompt }}"
+          echo "----------------------------------------"
+          echo "========================================"
 
       - name: Initialize MCP session
         id: init_session
