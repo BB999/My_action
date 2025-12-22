@@ -29,13 +29,8 @@ jobs:
           echo "character=$CHARACTER" >> $GITHUB_OUTPUT
           echo "📋 Character: $CHARACTER"
 
-          # シチュエーション例を抽出（①の次の行から②の前まで）
-          EXAMPLE=$(sed -n '/^①/,/^②/{/^①/d;/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
-          echo "example=$EXAMPLE" >> $GITHUB_OUTPUT
-          echo "📋 Example: $EXAMPLE"
-
-          # 接尾辞を抽出（②の次の行から最後まで）
-          SUFFIX=$(sed -n '/^②/,${/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
+          # 接尾辞を抽出（①の次の行から最後まで）
+          SUFFIX=$(sed -n '/^①/,${/^①/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
           echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
           echo "📋 Suffix: $SUFFIX"
 
