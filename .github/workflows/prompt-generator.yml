@@ -41,17 +41,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            Generate a unique, cinematic scene description for ${{ steps.read_prompt.outputs.character }} in a real Japanese location.
-
-            Requirements:
-            - Describe a dynamic POSE (standing, walking, jumping, stretching, lying down, running, climbing, etc.)
-            - Include FACIAL EXPRESSION (smiling, curious, sleepy, excited, relaxed, proud, mischievous, etc.)
-            - Describe the environment, lighting, and atmosphere
-            - Be specific about body language and surroundings
-            - 2-3 sentences total
-            - Be creative and unique each time
-
-            Output ONLY the English description, no explanations or labels.
+            Generate a unique cinematic scene description for ${{ steps.read_prompt.outputs.character }} in Japan. Output ONLY the English description, 2-3 sentences.
 
       - name: Extract and build prompt
         id: extract
