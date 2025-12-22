@@ -94,6 +94,11 @@ jobs:
           echo "  - enable_web_search: ${{ env.ENABLE_WEB_SEARCH }}"
           echo "  - limit_generations: ${{ env.LIMIT_GENERATIONS }}"
           echo "  - sync_mode: ${{ env.SYNC_MODE }}"
+          echo ""
+          echo "🎯 Prompt sent to Nano Banana Pro:"
+          echo "========================================"
+          echo "$PROMPT_ESCAPED"
+          echo "========================================"
 
           SESSION_ID="${{ steps.init_session.outputs.session_id }}"
 
