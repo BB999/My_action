@@ -1,6 +1,6 @@
 ⓪キャラクター説明
 ┗元画像のキャラクターを説明します
-a cool cat wearing red and blue sunglasses
+a calico cat (mi-ke neko) with distinctive orange, black, and white patches, wearing stylish red and blue sunglasses
 
 ①シチュエーション・構図を定義する
 ┗どういう内容のカットか指定します。（下記は一例）
