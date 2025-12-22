@@ -83,7 +83,20 @@ jobs:
         run: |
           echo "🚀 Submitting image edit request..."
 
+          echo ""
+          echo "🎯 Original prompt (raw):"
+          echo "========================================"
+          echo "$PROMPT"
+          echo "========================================"
+          echo ""
+
           PROMPT_ESCAPED=$(echo "$PROMPT" | jq -Rs '.' | sed 's/^"//;s/"$//')
+
+          echo "🎯 Prompt after JSON escape:"
+          echo "========================================"
+          echo "$PROMPT_ESCAPED"
+          echo "========================================"
+          echo ""
 
           echo "📤 Sending request with:"
           echo "  - image_url: ${{ needs.upload-image.outputs.upload-url }}"
@@ -94,11 +107,6 @@ jobs:
           echo "  - enable_web_search: ${{ env.ENABLE_WEB_SEARCH }}"
           echo "  - limit_generations: ${{ env.LIMIT_GENERATIONS }}"
           echo "  - sync_mode: ${{ env.SYNC_MODE }}"
-          echo ""
-          echo "🎯 Prompt sent to Nano Banana Pro:"
-          echo "========================================"
-          echo "$PROMPT_ESCAPED"
-          echo "========================================"
 
           SESSION_ID="${{ steps.init_session.outputs.session_id }}"
 
