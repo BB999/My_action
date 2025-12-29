@@ -1,0 +1,293 @@
+name: X (Twitter) Poster Module
+
+on:
+  workflow_call:
+    inputs:
+      tweet-text:
+        required: true
+        type: string
+        description: "Tweet text content"
+      image-file:
+        required: false
+        type: string
+        description: "Image file path to attach"
+
+jobs:
+  post-to-x:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Download Image artifact (if needed)
+      if: inputs.image-file != ''
+      uses: actions/download-artifact@v4
+      with:
+        name: onedrive-images
+        path: ./images/
+        
+    - name: Install Pillow for image compression
+      if: inputs.image-file != ''
+      run: pip install Pillow
+
+    - name: Verify and Compress Image
+      run: |
+        echo "📋 ファイル確認中..."
+        ls -la
+        if [ "${{ inputs.image-file }}" != "" ]; then
+          if [ -f "${{ inputs.image-file }}" ]; then
+            echo "✅ 画像ファイル確認: ${{ inputs.image-file }}"
+            file "${{ inputs.image-file }}"
+            ORIGINAL_SIZE=$(stat -c%s "${{ inputs.image-file }}")
+            echo "📊 元のファイルサイズ: $ORIGINAL_SIZE bytes ($(echo "scale=2; $ORIGINAL_SIZE/1024/1024" | bc) MB)"
+
+            # 5MB (5242880 bytes) を超える場合は圧縮
+            if [ $ORIGINAL_SIZE -gt 5242880 ]; then
+              echo "🔄 画像が5MBを超えているため、JPEG圧縮を実行..."
+              python3 scripts/compress_image.py "${{ inputs.image-file }}"
+
+              # 圧縮後のファイルパスを環境変数に保存
+              COMPRESSED_PATH="${{ inputs.image-file }}"
+              COMPRESSED_PATH="${COMPRESSED_PATH%.*}.jpg"
+              echo "COMPRESSED_IMAGE=$COMPRESSED_PATH" >> $GITHUB_ENV
+              echo "📊 圧縮後ファイルサイズ: $(stat -c%s "$COMPRESSED_PATH") bytes"
+            else
+              echo "✅ 画像サイズは5MB以下なので圧縮不要"
+              echo "COMPRESSED_IMAGE=${{ inputs.image-file }}" >> $GITHUB_ENV
+            fi
+          else
+            echo "::error::❌ 画像ファイルが見つかりません: ${{ inputs.image-file }}"
+            exit 1
+          fi
+        fi
+        
+    - name: Post to X (Twitter)
+      env:
+        X_API_KEY: ${{ secrets.X_API_KEY }}
+        X_API_SECRET: ${{ secrets.X_API_SECRET }}
+        X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+        X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+      run: |
+        echo "🐦 X (Twitter) 投稿開始"
+        echo ""
+        echo "🔍 デバッグ情報:"
+        echo "  - 受信したテキスト: '${{ inputs.tweet-text }}'"
+        echo "  - テキストの長さ: $(echo -n '${{ inputs.tweet-text }}' | wc -c)"
+        echo "  - 画像ファイル: '${{ inputs.image-file }}'"
+        echo ""
+        
+        # テキストが空の場合のデフォルト設定
+        TWEET_TEXT="${{ inputs.tweet-text }}"
+        if [ -z "$TWEET_TEXT" ] || [ "$TWEET_TEXT" = "null" ]; then
+          TWEET_TEXT="おはよう！素敵な一日を✨"
+          echo "⚠️ テキストが空のため、デフォルトテキストを使用: $TWEET_TEXT"
+        fi
+        
+        echo "📝 投稿するテキスト: $TWEET_TEXT"
+        
+        # Pythonスクリプトに渡すための環境変数設定
+        export FINAL_TWEET_TEXT="$TWEET_TEXT"
+        
+        # 必要な環境変数のチェック
+        if [ -z "$X_API_KEY" ] || [ -z "$X_API_SECRET" ] || [ -z "$X_ACCESS_TOKEN" ] || [ -z "$X_ACCESS_TOKEN_SECRET" ]; then
+          echo "::error::❌ X API認証情報が設定されていません"
+          echo "::error::以下のGitHub Secretsを設定してください:"
+          echo "::error::  - X_API_KEY"
+          echo "::error::  - X_API_SECRET"  
+          echo "::error::  - X_ACCESS_TOKEN"
+          echo "::error::  - X_ACCESS_TOKEN_SECRET"
+          exit 1
+        fi
+        echo "✅ X API認証情報が設定されています"
+        
+        # Python投稿スクリプトを実行
+        python3 - <<'EOF'
+        import os
+        import sys
+        import json
+        import time
+        import random
+        import hmac
+        import hashlib
+        import base64
+        import urllib.parse
+        import urllib.request
+        import mimetypes
+        
+        # 環境変数から認証情報を取得
+        API_KEY = os.environ.get('X_API_KEY')
+        API_SECRET = os.environ.get('X_API_SECRET')
+        ACCESS_TOKEN = os.environ.get('X_ACCESS_TOKEN')
+        ACCESS_TOKEN_SECRET = os.environ.get('X_ACCESS_TOKEN_SECRET')
+        
+        # 投稿内容
+        TWEET_TEXT = os.environ.get('FINAL_TWEET_TEXT', "${{ inputs.tweet-text }}")
+        # 圧縮後のファイルパスを優先して使用
+        IMAGE_FILE = os.environ.get('COMPRESSED_IMAGE') or ("${{ inputs.image-file }}" if "${{ inputs.image-file }}" else None)
+        
+        def create_oauth_signature(method, url, params, api_secret, token_secret):
+            """OAuth 1.0a 署名を生成"""
+            # パラメータをソート
+            sorted_params = sorted(params.items())
+            param_string = '&'.join([f"{k}={v}" for k, v in sorted_params])
+            
+            # 署名ベース文字列
+            signature_base = f"{method}&{urllib.parse.quote(url, safe='')}&{urllib.parse.quote(param_string, safe='')}"
+            
+            # 署名キー
+            signing_key = f"{api_secret}&{token_secret}"
+            
+            # HMAC-SHA1署名
+            signature = base64.b64encode(
+                hmac.new(
+                    signing_key.encode(),
+                    signature_base.encode(),
+                    hashlib.sha1
+                ).digest()
+            ).decode()
+            
+            return urllib.parse.quote(signature, safe='')
+        
+        def upload_media(file_path):
+            """メディアアップロード"""
+            
+            upload_url = "https://upload.twitter.com/1.1/media/upload.json"
+            
+            try:
+                # OAuth 1.0a認証
+                oauth_params = {
+                    'oauth_consumer_key': API_KEY,
+                    'oauth_nonce': str(random.randint(0, 1000000000)),
+                    'oauth_signature_method': 'HMAC-SHA1',
+                    'oauth_timestamp': str(int(time.time())),
+                    'oauth_token': ACCESS_TOKEN,
+                    'oauth_version': '1.0'
+                }
+                
+                # 署名生成
+                oauth_params['oauth_signature'] = create_oauth_signature('POST', upload_url, oauth_params, API_SECRET, ACCESS_TOKEN_SECRET)
+                
+                # Authorization ヘッダー
+                auth_header = 'OAuth ' + ', '.join([f'{k}="{v}"' for k, v in sorted(oauth_params.items())])
+                
+                # ファイル読み込み
+                with open(file_path, 'rb') as f:
+                    file_data = f.read()
+                
+                # マルチパートボディ作成
+                boundary = f'----WebKitFormBoundary{random.randint(1000000000, 9999999999)}'
+                
+                body_parts = []
+                body_parts.append(f'--{boundary}')
+                body_parts.append('Content-Disposition: form-data; name="media"; filename="upload"')
+                body_parts.append('Content-Type: application/octet-stream')
+                body_parts.append('')
+                
+                body_prefix = '\r\n'.join(body_parts) + '\r\n'
+                body_suffix = f'\r\n--{boundary}--\r\n'
+                
+                body = body_prefix.encode() + file_data + body_suffix.encode()
+                
+                # リクエスト送信
+                req = urllib.request.Request(upload_url, data=body, headers={
+                    'Authorization': auth_header,
+                    'Content-Type': f'multipart/form-data; boundary={boundary}'
+                })
+                
+                with urllib.request.urlopen(req) as response:
+                    result = json.loads(response.read().decode())
+                    media_id = result.get('media_id_string')
+                    if media_id:
+                        print(f"✅ メディアアップロード成功: {file_path} → {media_id}")
+                        return media_id
+                    else:
+                        print(f"❌ メディアIDが取得できませんでした: {file_path}")
+                        return None
+                        
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode()
+                print(f"❌ メディアアップロードエラー: {e.code} - {e.reason}")
+                print(f"   ファイル: {file_path}")
+                print(f"   詳細: {error_body}")
+                return None
+            except Exception as e:
+                print(f"❌ メディアアップロード例外: {file_path} - {e}")
+                return None
+        
+        def post_tweet(text, image_file):
+            """ツイート投稿"""
+            
+            url = "https://api.twitter.com/2/tweets"
+            
+            # メディアアップロード
+            uploaded_media_ids = []
+            if image_file and os.path.exists(image_file):
+                print(f"📤 画像アップロード中: {image_file}")
+                media_id = upload_media(image_file)
+                if media_id:
+                    uploaded_media_ids.append(media_id)
+                else:
+                    print(f"⚠️ 画像アップロードに失敗、テキストのみで投稿を続行")
+            
+            # OAuth パラメータ
+            oauth_params = {
+                'oauth_consumer_key': API_KEY,
+                'oauth_nonce': str(random.randint(0, 1000000000)),
+                'oauth_signature_method': 'HMAC-SHA1',
+                'oauth_timestamp': str(int(time.time())),
+                'oauth_token': ACCESS_TOKEN,
+                'oauth_version': '1.0'
+            }
+            
+            # 署名生成
+            oauth_params['oauth_signature'] = create_oauth_signature('POST', url, oauth_params, API_SECRET, ACCESS_TOKEN_SECRET)
+            
+            # Authorizationヘッダー作成
+            auth_header = 'OAuth ' + ', '.join([f'{k}="{v}"' for k, v in sorted(oauth_params.items())])
+            
+            # リクエストボディ
+            tweet_data = {'text': text}
+            if uploaded_media_ids:
+                tweet_data['media'] = {'media_ids': uploaded_media_ids}
+                print(f"📎 メディア添付: {len(uploaded_media_ids)}個")
+            
+            body = json.dumps(tweet_data).encode('utf-8')
+            
+            # リクエスト送信
+            req = urllib.request.Request(url, data=body, headers={
+                'Authorization': auth_header,
+                'Content-Type': 'application/json'
+            })
+            
+            try:
+                with urllib.request.urlopen(req) as response:
+                    result = json.loads(response.read().decode())
+                    print(f"✅ ツイートを投稿しました: {text}")
+                    if uploaded_media_ids:
+                        print(f"   メディア: {len(uploaded_media_ids)}個のファイル")
+                    print(f"   ツイートID: {result['data']['id']}")
+                    print(f"   URL: https://twitter.com/i/web/status/{result['data']['id']}")
+                    return True
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode()
+                print(f"❌ ツイート投稿エラー: {e.code} - {e.reason}")
+                print(f"   詳細: {error_body}")
+                return False
+        
+        # メイン処理
+        if not all([API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET]):
+            print("❌ 認証情報が不足しています")
+            sys.exit(1)
+        
+        success = post_tweet(TWEET_TEXT, IMAGE_FILE)
+        sys.exit(0 if success else 1)
+        EOF
+        
+        echo ""
+        echo "🎉 X投稿処理が完了しました"

@@ -1,0 +1,15 @@
+name: Good Morning Post
+
+on:
+  # 手動実行
+  workflow_dispatch:
+  # 毎朝7時（日本時間）に実行 = UTC 22:00（前日）
+  # schedule:
+  #   - cron: '0 22 * * *'
+
+jobs:
+  post-good-morning:
+    uses: ./.github/workflows/x-poster.yml
+    with:
+      tweet-text: "おはよう"
+    secrets: inherit
