@@ -26,12 +26,11 @@ jobs:
         python-version: '3.10'
         
     - name: Download Image artifact (if needed)
-      if: inputs.image-file != '' && !startsWith(inputs.image-file, 'assets/') && !startsWith(inputs.image-file, 'images/')
+      if: inputs.image-file != ''
       uses: actions/download-artifact@v4
       with:
         name: onedrive-images
         path: ./images/
-      continue-on-error: true
         
     - name: Install Pillow for image compression
       if: inputs.image-file != ''

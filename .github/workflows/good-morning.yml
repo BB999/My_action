@@ -12,4 +12,5 @@ jobs:
     uses: ./.github/workflows/x-poster.yml
     with:
       tweet-text: "おはよう"
+      image-file: "images/noranekob_samen.png"
     secrets: inherit
