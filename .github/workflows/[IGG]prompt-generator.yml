@@ -44,7 +44,7 @@ jobs:
           direct_prompt: |
             You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
-            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 1
         id: check1
@@ -98,7 +98,7 @@ jobs:
           direct_prompt: |
             You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
-            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 2
         id: check2
@@ -151,7 +151,7 @@ jobs:
           direct_prompt: |
             You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
-            The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
       - name: Check result 3
         id: check3
