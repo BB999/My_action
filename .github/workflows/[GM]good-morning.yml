@@ -9,7 +9,7 @@ on:
 
 jobs:
   post-good-morning:
-    uses: ./.github/workflows/x-poster.yml
+    uses: ./.github/workflows/[GM]x-poster.yml
     with:
       tweet-text: "おはよう"
       image-file: "images/noranekob_samen.png"
