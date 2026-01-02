@@ -1,4 +1,4 @@
-name: Image Edit with Nano Banana Pro
+name: "[IGG] Image Edit with Nano Banana Pro"
 
 on:
   workflow_dispatch:

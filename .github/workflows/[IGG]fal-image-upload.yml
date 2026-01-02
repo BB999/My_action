@@ -1,4 +1,4 @@
-name: FAL Image Upload
+name: "[IGG] FAL Image Upload"
 
 on:
   workflow_call:

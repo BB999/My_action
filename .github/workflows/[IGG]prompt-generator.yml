@@ -1,4 +1,4 @@
-name: Prompt Generator
+name: "[IGG] Prompt Generator"
 
 on:
   workflow_call:

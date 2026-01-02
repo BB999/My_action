@@ -1,4 +1,4 @@
-name: Discord Sender Module
+name: "[IGG] Discord Sender Module"
 
 on:
   workflow_call:

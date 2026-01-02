@@ -1,4 +1,4 @@
-name: X (Twitter) Poster Module
+name: "[GM] X (Twitter) Poster Module"
 
 on:
   workflow_call:
