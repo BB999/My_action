@@ -2,6 +2,9 @@ name: "[IGG] Image Edit with Nano Banana Pro"
 
 on:
   workflow_dispatch:
+  schedule:
+    # 毎日朝7時（日本時間）= UTC 22:00（前日）
+    - cron: '0 22 * * *'
 
 permissions:
   id-token: write
