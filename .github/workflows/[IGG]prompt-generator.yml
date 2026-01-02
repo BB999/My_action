@@ -42,7 +42,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
             The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
@@ -96,7 +96,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
             The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
@@ -149,7 +149,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique anime scene featuring: ${{ steps.read_prompt.outputs.character }}
+            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
 
             The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
 
