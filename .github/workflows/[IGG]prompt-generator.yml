@@ -30,10 +30,15 @@ jobs:
           echo "character=$CHARACTER" >> $GITHUB_OUTPUT
           echo "📋 Character: $CHARACTER"
 
-          # 接尾辞を抽出（①の次の行から最後まで）
-          SUFFIX=$(sed -n '/^①/,${/^①/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
+          # 接尾辞を抽出（①の次の行から②の前まで）
+          SUFFIX=$(sed -n '/^①/,/^②/{/^①/d;/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
           echo "suffix=$SUFFIX" >> $GITHUB_OUTPUT
           echo "📋 Suffix: $SUFFIX"
+
+          # Claudeへの指示を抽出（②の次の行から最後まで）
+          CLAUDE_INSTRUCTION=$(sed -n '/^②/,${/^②/d;/^┗/d;p}' prompt/prompt/prompt.md | tr '\n' ' ' | sed 's/^ *//;s/ *$//')
+          echo "claude_instruction=$CLAUDE_INSTRUCTION" >> $GITHUB_OUTPUT
+          echo "📋 Claude Instruction: $CLAUDE_INSTRUCTION"
 
       # 1回目の試行
       - name: Generate situation with Claude (Attempt 1)
@@ -44,9 +49,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
+            Character: ${{ steps.read_prompt.outputs.character }}
 
-            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            ${{ steps.read_prompt.outputs.claude_instruction }}
 
       - name: Check result 1
         id: check1
@@ -99,9 +104,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
+            Character: ${{ steps.read_prompt.outputs.character }}
 
-            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            ${{ steps.read_prompt.outputs.claude_instruction }}
 
       - name: Check result 2
         id: check2
@@ -153,9 +158,9 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           mode: agent
           direct_prompt: |
-            You are a creative writing assistant. Write a TEXT DESCRIPTION (not an image) of a unique scene featuring: ${{ steps.read_prompt.outputs.character }}
+            Character: ${{ steps.read_prompt.outputs.character }}
 
-            Change the pose and location randomly while keeping the character's appearance. The scene should be energizing and inspiring. Output ONLY the scene description text, nothing else. No code, no explanations, just the descriptive text that could be used as an image generation prompt.
+            ${{ steps.read_prompt.outputs.claude_instruction }}
 
       - name: Check result 3
         id: check3
