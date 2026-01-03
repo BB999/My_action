@@ -14,6 +14,7 @@ permissions:
 jobs:
   generate-prompt:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       prompt: ${{ steps.final.outputs.prompt }}
 
@@ -37,6 +38,7 @@ jobs:
       # 1回目の試行
       - name: Generate situation with Claude (Attempt 1)
         id: claude1
+        timeout-minutes: 5
         uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -90,6 +92,7 @@ jobs:
       # 2回目の試行（1回目が失敗した場合）
       - name: Generate situation with Claude (Attempt 2)
         id: claude2
+        timeout-minutes: 5
         if: steps.check1.outputs.success != 'true'
         uses: anthropics/claude-code-action@beta
         with:
@@ -143,6 +146,7 @@ jobs:
       # 3回目の試行（2回目も失敗した場合）
       - name: Generate situation with Claude (Attempt 3)
         id: claude3
+        timeout-minutes: 5
         if: steps.check1.outputs.success != 'true' && steps.check2.outputs.success != 'true'
         uses: anthropics/claude-code-action@beta
         with:
