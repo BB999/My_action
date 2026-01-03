@@ -255,9 +255,13 @@ jobs:
 
   # Step 4: Discordに送信
   send-to-discord:
-    needs: edit-image
+    needs: [generate-prompt, edit-image]
     uses: ./.github/workflows/[IGG]discord-sender.yml
     with:
-      message: "🎨 画像編集が完了しました！"
+      message: |
+        🎨 画像編集が完了しました！
+
+        📝 **プロンプト（日本語）:**
+        ${{ needs.generate-prompt.outputs.prompt_ja }}
       artifact-name: edited-images
     secrets: inherit
